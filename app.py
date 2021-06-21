@@ -27,11 +27,11 @@ st.set_page_config(
 
 # Cached data and model load for faster interactivity
 @st.cache(allow_output_mutation=True)
-def build_pmap_model(X, supp, n_components, n_iter):
+def build_pmap_model(X : pd.DataFrame, supp, n_components : int, n_iter: int) -> pmap.PMAP:
     return pmap.PMAP(n_components, n_iter).fit(X, supp)
 
 @st.cache()
-def load_data(data):
+def load_data(data) -> pd.DataFrame:
     return pd.read_excel(data, index_col=0)
 
 """
@@ -139,7 +139,6 @@ if uploaded_file:
         fig, ax = plt.subplots(figsize=(16,9))
         model.plot_coordinates(x_component=x_component, y_component=y_component, supp=plot_supp, ax=ax, invert_ax=invert_ax)
     ax.grid(False) # force grid off
-
     st.pyplot(fig)
 
     st.write("You can download the coordinates to build your charts, or copy the image above.")

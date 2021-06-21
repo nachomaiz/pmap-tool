@@ -17,7 +17,7 @@ def clean_pct(df, keep_tag=False):
 
 
 # Download button for streamlit app
-def download_button(object_to_download, download_filename, button_text, pickle_it=False):
+def download_button(object_to_download, download_filename : str, button_text : str, pickle_it : bool = False) -> str:
     """
     Generates a link to download the given object_to_download.
     Params:
