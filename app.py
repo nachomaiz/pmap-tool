@@ -21,22 +21,22 @@ mplparams = {
     'font.size' : '14.0'
 }
 
-"""
-# Create your own Perceptual Map
-You can use this tool to create perceptual maps, download the results, 
-and supports supplementary data.
-"""
-with st.beta_expander("Learn more about Perceptual Maps"):
-    st.write("Coming soon")
+st.set_page_config(
+    page_title="Perceptual Map Tool",
+    page_icon="🧭"
+)
 
 """
+# Perceptual Map Tool
+You can use this tool to create perceptual maps, download the results, 
+and supports supplementary data. \n
 Make sure the data is in the right format: 
 - Names on left-most column
 - All columns labeled
 - Supplementary rows at bottom of table
 - Supplementary columns right of the table
 
-Load sample data below to ensure you're using the right format.
+Load sample data below to ensure you're using the right data format.
 """
 
 st.sidebar.title("Perceptual Map Setup")
