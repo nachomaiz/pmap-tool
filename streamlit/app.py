@@ -27,12 +27,9 @@ mplparams = {
 """
 # Create your own Perceptual Map
 You can use this tool to create perceptual maps, download the results, 
-and even supports supplementary data. \n
+and supports supplementary data.
 """
 with st.beta_expander("Learn more about Perceptual Maps"):
-    st.write("Coming soon")
-
-with st.beta_expander("Data Example"):
     st.write("Coming soon")
 
 """
@@ -42,7 +39,7 @@ Make sure the data is in the right format:
 - Supplementary rows at bottom of table
 - Supplementary columns right of the table
 
-You can download the coordinates to build your charts, or copy the image below.
+Load sample data below to ensure you're using the right format.
 """
 
 st.sidebar.title("Perceptual Map Setup")
@@ -52,6 +49,15 @@ uploaded_file = st.sidebar.file_uploader(
     type=['xls','xlsx']
 )
 
+if sample := st.checkbox('Load sample data'):
+    uploaded_file = '../data/sample data 2.xlsx'
+    filename = uploaded_file.split('/')[-1]
+    st.info('Try using one supplementary column on this dataset.')
+    if filename in uploaded_file:
+        filewrap = st.sidebar.empty()
+    filewrap.write(f'File: {filename}')
+
+# Main app once data is ready
 if uploaded_file:
     data = pd.read_excel(uploaded_file, index_col=0)
     n_cols = data.shape[1]
@@ -67,7 +73,7 @@ if uploaded_file:
     if st.sidebar.checkbox("Supplementary data", help="For plotting grouped averages, factors, etc. Only the final rows and columns can be supplementary"):
         supp = (
             st.sidebar.slider("Supplementary rows", 0, data.shape[0] - 3, 0, 1, help="Must leave at least 3 rows as core data"),
-            st.sidebar.slider("Supplementary columns", 0, n_cols - 3, 0, 1, help="Must leave at least 3 columns as core data")
+            st.sidebar.slider("Supplementary columns", 0, n_cols - 3, 1 if sample else 0, 1, help="Must leave at least 3 columns as core data") # default value is 1 if sample data is loaded
         )
         plot_supp = st.sidebar.selectbox("Plot supplementary data",[True,False,'only'])
     else:
@@ -99,8 +105,12 @@ if uploaded_file:
 
     st.pyplot(fig)
 
+    st.write("You can download the coordinates to build your charts, or copy the image below.")
+
     out_data = model.get_chart_data(x_component=x_component, y_component=y_component, invert_ax=invert_ax)
 
     with st.beta_expander("Download Data"):
         st.markdown(pmap.utils.download_button(out_data, 'pmap-output.xlsx', 'Download output as excel'), unsafe_allow_html=True)
         st.dataframe(out_data)
+
+st.info("Developed with ❤ by [nachomaiz](https://github.com/nachomaiz) based on the [prince](https://github.com/MaxHalford/prince) package")
