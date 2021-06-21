@@ -107,7 +107,7 @@ if uploaded_file:
 
     st.pyplot(fig)
 
-    st.write("You can download the coordinates to build your charts, or copy the image below.")
+    st.write("You can download the coordinates to build your charts, or copy the image above.")
 
     out_data = model.get_chart_data(x_component=x_component, y_component=y_component, invert_ax=invert_ax)
 
