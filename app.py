@@ -92,7 +92,11 @@ if uploaded_file:
     invert_ax = 'b' if invert_x and invert_y else 'x' if invert_x else 'y' if invert_y else None
 
     # Initialize and fit PMAP
-    model = pmap.PMAP(n_components=n_components, n_iter=n_iter)
+    @st.cache(allow_output_mutation=True)
+    def build_pmap_model(n_components, n_iter):
+        return pmap.PMAP(n_components=n_components, n_iter=n_iter)
+
+    model = build_pmap_model(n_components, n_iter)
     model = model.fit(data, supp=supp)
 
     # Plot Perceptual Map
