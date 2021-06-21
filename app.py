@@ -94,6 +94,7 @@ if uploaded_file:
                 )
         
     # Model parameters
+    n_iter = st.sidebar.number_input("# of iterations", 1, 100, 10)
     if n_cols > 3:
         n_components = st.sidebar.slider("Number of components (default 2)", 2, 10 if n_cols > 10 else n_cols - 1, 2, help="For performance reasons the max is 10. Allows one less than the total number of data columns")
     else: 
@@ -101,38 +102,32 @@ if uploaded_file:
         st.sidebar.info("Number of components = 2")
     x_component = st.sidebar.slider("Horizontal component", 0, n_components - 1, 0)
     y_component = st.sidebar.slider("Vertical component", 0, n_components - 1, 1)
+
+    # Chart options
+    invert_x = st.sidebar.checkbox("Invert x axis", False)
+    invert_y = st.sidebar.checkbox("Invert y axis", False)
     
     # Supplementary Data
+
     if st.sidebar.checkbox("Supplementary data", help="For plotting grouped averages, factors, etc. Only the final rows and columns can be supplementary"):
-        
+        supp = [0,0]
+
         # Show only if each data shape dimension is large enough
         if n_rows > 3:
-            s_rows = st.sidebar.slider("Supplementary rows", 0, n_rows - 3, 0, 1, help="Must leave at least 3 rows as core data")
-        else: 
-            s_rows = 0
-            st.sidebar.info("Supplementary rows not available.")
-        if n_cols > 3:
-            s_cols = st.sidebar.slider("Supplementary columns", 0, n_cols - 3, 1 if sample else 0, 1, help="Must leave at least 3 columns as core data") # default value is 1 if sample data is loaded
-        else: 
-            s_cols = 0
-            st.sidebar.info("Supplementary columns not available.")
-        
-        supp = (s_rows,s_cols)
+            supp[0] = st.sidebar.slider("Supplementary rows", 0, n_rows - 3, 0, 1, help="Must leave at least 3 rows as core data")
 
-        plot_supp = st.sidebar.selectbox("Plot supplementary data",[True,False,'only'])
+        if n_cols > 3:
+            supp[1] = st.sidebar.slider("Supplementary columns", 0, n_cols - 3, 1 if sample else 0, 1, help="Must leave at least 3 columns as core data") # default value is 1 if sample data is loaded
+        
+        # set supp to tuple or None if both supp values are zero
+        supp = None if supp == [0,0] else tuple(supp)
+        
+        plot_supp_idx = 1 if supp is None else 0
+        plot_supp = st.sidebar.selectbox("Plot supplementary data",[True,False,'only'], index=plot_supp_idx)
+
     else:
         supp = None
         plot_supp = False
-    
-    # Advanced options
-    if st.sidebar.checkbox("Advanced Options", help="Additional options that generally don't need to change"):
-        n_iter = st.sidebar.number_input("# of iterations", 1, 100, 10)
-        invert_x = st.sidebar.checkbox("Invert x axis", False)
-        invert_y = st.sidebar.checkbox("Invert y axis", False)
-    else: 
-        n_iter = 10
-        invert_x = False
-        invert_y = False
     
     # Parse invert axis for PMAP functions
     invert_ax = 'b' if invert_x and invert_y else 'x' if invert_x else 'y' if invert_y else None
