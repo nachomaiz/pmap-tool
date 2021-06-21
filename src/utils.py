@@ -72,6 +72,7 @@ def download_button(object_to_download, download_filename, button_text, pickle_i
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
+                background-color: #0E1117;
                 color: rgb(255, 255, 255);
                 padding: .25rem .75rem;
                 position: relative;

@@ -3,10 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import cycler
 
-import sys
-sys.path.insert(0,'..')
-
-import pmap
+from src import pmap, utils
 
 # Styling for the Perceptual Map plot
 mplparams = {
@@ -49,13 +46,14 @@ uploaded_file = st.sidebar.file_uploader(
     type=['xls','xlsx']
 )
 
+# sample data functionality which displays filename in sidebar
 if sample := st.checkbox('Load sample data'):
-    uploaded_file = '../data/sample data 2.xlsx'
+    uploaded_file = 'data/brand data.xlsx'
     filename = uploaded_file.split('/')[-1]
     st.info('Try using one supplementary column on this dataset.')
     if filename in uploaded_file:
         filewrap = st.sidebar.empty()
-    filewrap.write(f'File: {filename}')
+    filewrap.info(f'Using sample data: {filename}')
 
 # Main app once data is ready
 if uploaded_file:
@@ -110,7 +108,7 @@ if uploaded_file:
     out_data = model.get_chart_data(x_component=x_component, y_component=y_component, invert_ax=invert_ax)
 
     with st.beta_expander("Download Data"):
-        st.markdown(pmap.utils.download_button(out_data, 'pmap-output.xlsx', 'Download output as excel'), unsafe_allow_html=True)
+        st.markdown(utils.download_button(out_data, 'pmap-output.xlsx', 'Download output as excel'), unsafe_allow_html=True)
         st.dataframe(out_data)
 
 st.info("Developed with ❤ by [nachomaiz](https://github.com/nachomaiz) based on the [prince](https://github.com/MaxHalford/prince) package")
