@@ -1,6 +1,4 @@
-from operator import invert
 import streamlit as st
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 import cycler
@@ -34,6 +32,9 @@ and even supports supplementary data. \n
 with st.beta_expander("Learn more about Perceptual Maps"):
     st.write("Coming soon")
 
+with st.beta_expander("Data Example"):
+    st.write("Coming soon")
+
 """
 Make sure the data is in the right format: 
 - Names on left-most column
@@ -44,7 +45,7 @@ Make sure the data is in the right format:
 You can download the coordinates to build your charts, or copy the image below.
 """
 
-st.sidebar.title("Model Setup")
+st.sidebar.title("Perceptual Map Setup")
 
 uploaded_file = st.sidebar.file_uploader(
     "Please upload your Excel file:",
