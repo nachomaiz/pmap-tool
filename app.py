@@ -8,15 +8,15 @@ from src import pmap, utils
 # Styling for the Perceptual Map plot
 mplparams = {
     'figure.facecolor' : '#0E1117',
-    'text.color' : 'white',
+    'text.color' : '#FAFAFA',
     'axes.facecolor' : '#0E1117',
-    'axes.edgecolor' : 'white',
-    'axes.labelcolor' : 'white',
+    'axes.edgecolor' : '#FAFAFA',
+    'axes.labelcolor' : '#FAFAFA',
     'axes.grid' : False,
-    'xtick.color' : 'white',
-    'xtick.labelcolor' : 'white',
-    'ytick.color' : 'white',
-    'ytick.labelcolor' : 'white',
+    'xtick.color' : '#FAFAFA',
+    'xtick.labelcolor' : '#FAFAFA',
+    'ytick.color' : '#FAFAFA',
+    'ytick.labelcolor' : '#FAFAFA',
     'axes.prop_cycle' : cycler.cycler('color',plt.cm.Dark2(range(0,5))),
     'font.size' : '14.0'
 }
