@@ -6,7 +6,7 @@ import pickle
 import uuid
 import re
 
-def clean_pct(df, keep_tag=False):
+def clean_pct(df: pd.DataFrame, keep_tag: bool = False) -> pd.DataFrame:
     '''Clean pct tags from column names in a DataFrame'''
     if isinstance(df, pd.DataFrame):
         df.columns = df.columns.str.replace(r'_', ' ')
@@ -49,7 +49,7 @@ def download_button(object_to_download, download_filename : str, button_text : s
         elif isinstance(object_to_download, pd.DataFrame):
             #object_to_download = object_to_download.to_csv(index=False)
             towrite = io.BytesIO()
-            object_to_download = object_to_download.to_excel(towrite, encoding='utf-8', index=True, header=True)
+            object_to_download = object_to_download.to_excel(towrite, encoding='utf-8', index=False, header=True)
             towrite.seek(0)
 
         # Try JSON encode for everything else

@@ -94,7 +94,8 @@ if uploaded_file:
                 )
         
     # Model parameters
-    n_iter = st.sidebar.number_input("# of iterations", 1, 100, 10)
+    # n_iter = st.sidebar.number_input("# of iterations", 1, 100, 10)
+    n_iter = 10
     if n_cols > 3:
         n_components = st.sidebar.slider("Number of components (default 2)", 2, 10 if n_cols > 10 else n_cols - 1, 2, help="For performance reasons the max is 10. Allows one less than the total number of data columns")
     else: 
@@ -109,7 +110,7 @@ if uploaded_file:
     
     # Supplementary Data
 
-    if st.sidebar.checkbox("Supplementary data", help="For plotting grouped averages, factors, etc. Only the final rows and columns can be supplementary"):
+    if st.sidebar.checkbox("Supplementary data", help="For plotting grouped averages, factors, etc. Only the final rows and/or columns can be supplementary"):
         supp = [0,0]
 
         # Show only if each data shape dimension is large enough
@@ -146,7 +147,7 @@ if uploaded_file:
     out_data = model.get_chart_data(x_component=x_component, y_component=y_component, invert_ax=invert_ax)
 
     with st.beta_expander("Download Data"):
-        st.markdown(utils.download_button(out_data, 'pmap-output.xlsx', 'Download output as excel'), unsafe_allow_html=True)
+        st.markdown(utils.download_button(out_data.reset_index(), 'pmap-output.xlsx', 'Download output as excel'), unsafe_allow_html=True)
         st.dataframe(out_data)
 
 st.info("Developed with ❤ by [nachomaiz](https://github.com/nachomaiz) based on the [prince](https://github.com/MaxHalford/prince) package. [GitHub repo](https://github.com/nachomaiz/pmap).")
