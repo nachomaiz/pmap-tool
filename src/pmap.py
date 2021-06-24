@@ -17,29 +17,31 @@ class PMAP(CA):
     fitted_data : COMPLETE
 
     '''
-    def __init__(self, n_components=2, n_iter=10, copy=True, check_input=True, benzecri=False,
-                 random_state=None, engine='auto'):
+    def __init__(self, n_components: int = 2, n_iter: int = 10, copy: bool = True, check_input: bool = True, benzecri: bool = False,
+                 random_state: int = None, engine: str = 'auto'):
         super().__init__(n_components=n_components, n_iter=n_iter, copy=copy, check_input=check_input, benzecri=benzecri,
                  random_state=random_state, engine=engine)
         
 
-    def fit(self, X, supp = None, y=None):
+    def fit(self, X: pd.DataFrame, supp: tuple = None, y=None):
         '''Fits PMAP to dataframe, handling supplementary data separately.
 
-        Parameters:
+        Parameters
         -----------
-        X : dataframe to fit self with. This dataframe should have cases by row and attributes by columns. Case labels should be reflected in the index.
-        supp [None, tuple] : the number of supplementary rows and/or columns in the data. (supp_rows, supp_cols) Defaults to None.
+        X : dataframe to fit self with
+            This dataframe should have cases by row and attributes by columns. Case labels should be reflected in the index.
+        supp : None, tuple
+            The number of supplementary rows and/or columns in the data. (supp_rows, supp_cols) Defaults to None.
 
         '''
+        # check X type
+        if not isinstance(X, pd.DataFrame):
+            raise TypeError('X is not a pandas DataFrame.')
+        
         self.data = X.copy()
         self.supp = supp
+        
         # cut out and store supplementary data
-
-        # check X type
-        if not isinstance(self.data, pd.DataFrame):
-            raise TypeError('X is not a pandas DataFrame.')
-
         if self.supp:
             # check supp type
             if type(self.supp) == tuple:
@@ -59,26 +61,25 @@ class PMAP(CA):
             self.core = self.data
         
         # pass core data to CA fit method
-        return super().fit(X = self.core, y=y)
+        super().fit(X=self.core, y=y)
 
-    def _check_is_fitted(self):
-        super()._check_is_fitted()
+        return self
 
     @property
-    def fitted_supp_rows(self):
+    def fitted_supp_rows(self) -> pd.DataFrame:
         if self.supp[1] > 0:
             return self.row_coordinates(self.supp_rows.iloc[:,:-self.supp[1]])
         else:
             return self.row_coordinates(self.supp_rows)
 
     @property
-    def fitted_supp_cols(self):
+    def fitted_supp_cols(self) -> pd.DataFrame:
         if self.supp[0] > 0:
             return self.column_coordinates(self.supp_cols.iloc[:-self.supp[0],:])
         else:
             return self.column_coordinates(self.supp_cols)
 
-    def plot_supp(self, figsize = (16,9), ax = None, x_component = 0, y_component = 1, show_labels = (True,True), **kwargs):
+    def plot_supp(self, figsize: tuple = (16,9), ax = None, x_component: int = 0, y_component: int = 1, show_labels: tuple = (True,True), **kwargs):
         '''Refactoring of plot_coordinates to plot supplementary data'''
 
         self._check_is_fitted()
@@ -129,6 +130,7 @@ class PMAP(CA):
 
         # Legend
         ax.legend()
+        ax.grid(False) # force grid off
 
         # Text
         ei = self.explained_inertia_
@@ -140,23 +142,33 @@ class PMAP(CA):
 
     def plot_coordinates(self, figsize = (16,9), ax = None, x_component = 0, y_component = 1,
                          supp = False, show_labels = (True,True), invert_ax = None, **kwargs):
+        
         '''Plots perceptual map from trained self. 
 
-        Arguments:
+        Parameters
         ----------
-
-        figsize = (int, int) : size of the returned plot
-        ax : the axis to plot into. Defaults to None, creating a new ax
-        x_component, y_component : component from the trained self to use as x and y axis in the perceptual map
-        supp = bool, 'only' : plot supplementary data (if present). 'only' will suppress core data and show supplementary data instead.
-        show_labels = 
+        figsize : tuple(int)
+            Size of the returned plot
+        ax : matplotlib Axis, default = None
+            The axis to plot into. Defaults to None, creating a new ax
+        x_component, y_component : int
+            Component from the trained self to use as x and y axis in the perceptual map
+        supp : bool, 'only'
+            Plot supplementary data (if present). 'only' will suppress core data and show supplementary data instead.
+        show_labels : tuple(bool)
             (bool, bool) : show labels for [rows, columns]. If supp = True, shows all rows or columns
             (bool, bool, bool, bool) : only if supp = True, show labels for [rows, columns, supp rows, supp columns]
-        invert_ax = None, 
-            'x' : invert x axis 
-            'y' : invert y axis 
-            'b' : invert both axis
-        **kwargs : additional arguments to pass to matplotlib function
+        invert_ax : str, default = None
+            'x' = invert x axis 
+            'y' = invert y axis 
+            'b' = invert both axis
+        **kwargs 
+            Additional arguments to pass to matplotlib function
+        
+        Returns
+        -------
+        ax : matplotlib axis
+            Perceptual map plot
         '''
         self._check_is_fitted()
 
@@ -212,7 +224,7 @@ class PMAP(CA):
 
         return ax
 
-    def _make_MultiIndex(self):
+    def _make_MultiIndex(self) -> pd.MultiIndex:
         _row_idx = tuple(zip(['Core' for c in self.core.index] + ['Supplementary' for c in range(self.supp[0])], self.data.index))
         _row_idx = pd.MultiIndex.from_tuples(_row_idx)
         
@@ -222,7 +234,7 @@ class PMAP(CA):
         return _row_idx, _col_idx
 
     @property
-    def raw_data(self):
+    def raw_data(self) -> pd.DataFrame:
         if self.supp:
             _row_idx, _col_idx = self._make_MultiIndex()
             return pd.DataFrame(self.data.values, _row_idx, _col_idx)
@@ -230,7 +242,7 @@ class PMAP(CA):
             return self.core
 
     @property
-    def fitted_data(self):
+    def fitted_data(self) -> pd.DataFrame:
         if self.supp:
             _row_idx, _col_idx = self._make_MultiIndex()
             _r = self.row_coordinates(self.core)
@@ -246,7 +258,7 @@ class PMAP(CA):
                               self.column_coordinates(self.core)], 
                               keys=['Rows','Columns'])
     
-    def get_chart_data(self, x_component=0, y_component=1, invert_ax=None) -> pd.DataFrame:
+    def get_chart_data(self, x_component:int = 0, y_component:int = 1, invert_ax=None) -> pd.DataFrame:
         _d = self.fitted_data[[x_component, y_component]]
         if invert_ax is not None:
             if invert_ax == 'x':
