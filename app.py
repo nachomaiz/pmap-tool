@@ -5,21 +5,6 @@ import cycler
 
 from src import pmap, utils
 
-# Styling for the Perceptual Map plot
-mplparams = {
-    'figure.facecolor' : '#0E1117',
-    'text.color' : '#FAFAFA',
-    'axes.facecolor' : '#0E1117',
-    'axes.edgecolor' : '#FAFAFA',
-    'axes.labelcolor' : '#FAFAFA',
-    'xtick.color' : '#FAFAFA',
-    'xtick.labelcolor' : '#FAFAFA',
-    'ytick.color' : '#FAFAFA',
-    'ytick.labelcolor' : '#FAFAFA',
-    'axes.prop_cycle' : cycler.cycler('color',plt.cm.Dark2(range(0,4))),
-    'font.size' : '14.0'
-}
-
 st.set_page_config(
     page_title="Perceptual Map Tool",
     page_icon="💡"
@@ -134,6 +119,25 @@ if uploaded_file:
     invert_ax = 'b' if invert_x and invert_y else 'x' if invert_x else 'y' if invert_y else None
 
     model = build_pmap_model(data, supp, n_components, n_iter)
+
+    # Styling for the Perceptual Map plot
+    plot_colors = {"Dark" : {'bg':'#0E1117', 'fg':'#FAFAFA'},
+                   "Light" : {'bg':'#FFFFFF', 'fg':'#0E1117'}}
+    plot_theme = st.select_slider("Plot theme",["Dark", "Light"], "Dark")
+
+    mplparams = {
+        'figure.facecolor' : plot_colors[plot_theme]['bg'],
+        'text.color' : plot_colors[plot_theme]['fg'],
+        'axes.facecolor' : plot_colors[plot_theme]['bg'],
+        'axes.edgecolor' : plot_colors[plot_theme]['fg'],
+        'axes.labelcolor' : plot_colors[plot_theme]['fg'],
+        'xtick.color' : plot_colors[plot_theme]['fg'],
+        'xtick.labelcolor' : plot_colors[plot_theme]['fg'],
+        'ytick.color' : plot_colors[plot_theme]['fg'],
+        'ytick.labelcolor' : plot_colors[plot_theme]['fg'],
+        'axes.prop_cycle' : cycler.cycler('color',plt.cm.Dark2(range(0,4))),
+        'font.size' : '14.0'
+    }
 
     # Plot Perceptual Map
     with plt.style.context(mplparams):
