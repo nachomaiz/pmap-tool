@@ -27,12 +27,15 @@ class PMAP(CA):
         '''Fits PMAP to dataframe, handling supplementary data separately.
 
         Parameters
-        -----------
-        X : dataframe to fit self with
+        ----------
+        X : dataframe to fit PMAP
             This dataframe should have cases by row and attributes by columns. Case labels should be reflected in the index.
         supp : None, tuple
             The number of supplementary rows and/or columns in the data. (supp_rows, supp_cols) Defaults to None.
 
+        Returns
+        -------
+        new_PMAP : PMAP object fitted to X
         '''
         # check X type
         if not isinstance(X, pd.DataFrame):
@@ -79,7 +82,8 @@ class PMAP(CA):
         else:
             return self.column_coordinates(self.supp_cols)
 
-    def plot_supp(self, figsize: tuple = (16,9), ax = None, x_component: int = 0, y_component: int = 1, show_labels: tuple = (True,True), **kwargs):
+    def plot_supp(self, figsize: tuple = (16,9), ax = None, x_component: int = 0, 
+                  y_component: int = 1, show_labels: tuple = (True,True), **kwargs):
         '''Refactoring of plot_coordinates to plot supplementary data'''
 
         self._check_is_fitted()
@@ -90,42 +94,29 @@ class PMAP(CA):
         # Add style
         ax = plot.stylize_axis(ax)
 
-        # Get labels and names
+        # Get labels and names. Can turn this into a generic plotting function to loop over a tuple like (c_row, c_col, s_row, s_col)
         if self.supp[0] > 0:
             row_label, row_names, _, _ = util.make_labels_and_names(self.supp_rows)
             # Plot row principal coordinates (minus supp cols)
-            row_coords = self.fitted_supp_rows
-            ax.scatter(
-                row_coords[x_component],
-                row_coords[y_component],
-                **kwargs,
-                label='Supp ' + row_label
-            )
+            row_x = self.fitted_supp_rows[x_component]
+            row_y = self.fitted_supp_rows[y_component]
+            ax.scatter(row_x, row_y, **kwargs, label = 'Supp ' + row_label)
 
             # Add row labels
             if show_labels[0]:
-                x = row_coords[x_component]
-                y = row_coords[y_component]
-                for xi, yi, label in zip(x, y, row_names):
+                for xi, yi, label in zip(row_x, row_y, row_names):
                     ax.annotate(label, (xi, yi))
         
         if self.supp[1] > 0:
             _, _, col_label, col_names = util.make_labels_and_names(self.supp_cols)
-
             # Plot column principal coordinates (minus supp rows)
-            col_coords = self.fitted_supp_cols
-            ax.scatter(
-                col_coords[x_component],
-                col_coords[y_component],
-                **kwargs,
-                label='Supp ' + col_label
-            )
+            col_x = self.fitted_supp_cols[x_component]
+            col_y = self.fitted_supp_cols[y_component]
+            ax.scatter(col_x, col_y, **kwargs, label='Supp ' + col_label)
 
             # Add column labels
             if show_labels[1]:
-                x = col_coords[x_component]
-                y = col_coords[y_component]
-                for xi, yi, label in zip(x, y, col_names):
+                for xi, yi, label in zip(col_x, col_y, col_names):
                     ax.annotate(label, (xi, yi))
 
         # Legend
@@ -140,8 +131,8 @@ class PMAP(CA):
 
         return ax
 
-    def plot_coordinates(self, figsize = (16,9), ax = None, x_component = 0, y_component = 1,
-                         supp = False, show_labels = (True,True), invert_ax = None, **kwargs):
+    def plot_coordinates(self, figsize: tuple = (16,9), ax = None, x_component: int = 0, y_component: int = 1,
+                         supp = False, show_labels: tuple = (True,True), invert_ax: str = None, **kwargs):
         
         '''Plots perceptual map from trained self. 
 
@@ -190,7 +181,6 @@ class PMAP(CA):
 
         # if 'only', will need to plot into ax not from plot_coordinates, otherwise plot normally and add supp if needed
         if supp == 'only':
-            
             ax = self.plot_supp(figsize=figsize, ax=ax, x_component=x_component, y_component=y_component, show_labels=show_labels, **kwargs)
 
         else:
@@ -220,7 +210,7 @@ class PMAP(CA):
                 ax.invert_xaxis()
                 ax.invert_yaxis()
             else:
-                raise ValueError("invert must be 'x', 'y' or 'b' for both")
+                raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
 
         return ax
 
@@ -258,7 +248,8 @@ class PMAP(CA):
                               self.column_coordinates(self.core)], 
                               keys=['Rows','Columns'])
     
-    def get_chart_data(self, x_component:int = 0, y_component:int = 1, invert_ax=None) -> pd.DataFrame:
+    def get_chart_data(self, x_component:int = 0, y_component:int = 1, invert_ax: str = None) -> pd.DataFrame:
+        '''Returns two dimensions of multi-indexed fitted data'''
         _d = self.fitted_data[[x_component, y_component]]
         if invert_ax is not None:
             if invert_ax == 'x':

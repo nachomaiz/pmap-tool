@@ -12,7 +12,7 @@ st.set_page_config(
 
 # Cached data and model load for faster interactivity
 @st.cache(allow_output_mutation=True)
-def build_pmap_model(X : pd.DataFrame, supp, n_components : int, n_iter: int) -> pmap.PMAP:
+def build_pmap_model(X : pd.DataFrame, supp: tuple, n_components : int, n_iter: int) -> pmap.PMAP:
     return pmap.PMAP(n_components, n_iter).fit(X, supp)
 
 @st.cache()
