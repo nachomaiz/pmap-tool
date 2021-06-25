@@ -1,4 +1,3 @@
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 from prince.ca import CA
@@ -81,6 +80,10 @@ class PMAP(CA):
             return self.column_coordinates(self.supp_cols.iloc[:-self.supp[0],:])
         else:
             return self.column_coordinates(self.supp_cols)
+
+    @property
+    def fitted_tuple(self) -> tuple:
+        return self.row_coordinates(self.core), self.column_coordinates(self.core), self.fitted_supp_rows, self.fitted_supp_cols
 
     def plot_supp(self, figsize: tuple = (16,9), ax = None, x_component: int = 0, 
                   y_component: int = 1, show_labels: tuple = (True,True), **kwargs):
