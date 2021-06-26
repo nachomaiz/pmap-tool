@@ -142,7 +142,7 @@ if uploaded_file:
     # Plot Perceptual Map
     with plt.style.context(mplparams):
         fig, ax = plt.subplots(figsize=(16,9))
-        model.plot_coordinates(x_component=x_component, y_component=y_component, supp=plot_supp, ax=ax, invert_ax=invert_ax)
+        model.plot_map(x_component=x_component, y_component=y_component, supp=plot_supp, ax=ax, invert_ax=invert_ax)
     ax.grid(False) # force grid off
     st.pyplot(fig)
 
