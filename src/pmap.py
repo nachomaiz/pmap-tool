@@ -21,7 +21,6 @@ class PMAP(CA):
         super().__init__(n_components=n_components, n_iter=n_iter, copy=copy, check_input=check_input, benzecri=benzecri,
                  random_state=random_state, engine=engine)
         
-
     def fit(self, X: pd.DataFrame, supp: tuple = None, y=None):
         '''Fits PMAP to dataframe, handling supplementary data separately.
 
@@ -121,6 +120,7 @@ class PMAP(CA):
     
     @property
     def raw_data(self) -> pd.DataFrame:
+        '''The model's fitted data formatted with multi-index if supp data exists'''
         if self.supp:
             _row_idx, _col_idx = self._make_MultiIndex()
             return pd.DataFrame(self.data.values, _row_idx, _col_idx)
@@ -250,7 +250,7 @@ class PMAP(CA):
         count = 0
         for i in tup:
             if i is not None:
-                axis = count % 2
+                axis = count % 2 # 0 if rows 1 if cols
                 ax = self._plot(i.loc[:,[x_component, y_component]], ax, axis, pl_supp[count], show_labels[count], **kwargs)
             count += 1
 
@@ -279,16 +279,37 @@ class PMAP(CA):
     
     def subplots(self, figsize: tuple = (16,9), axes = None, x_component: int = 0,
                 y_component: int = 1, **kwargs):
-        '''Plots each chunk of data into a separate plot'''
+        '''Plots each chunk of data into a separate subplot.
+        
+        Parameters
+        ----------
+        figsize : tuple(int)
+            Size of the returned plot. Ignored if axes is not None
+        axes : matplotlib Axes, default = None
+            The axes to plot into. Defaults to None, creating a new axes
+        x_component, y_component : int
+            Component from the trained self to use as x and y axis in the perceptual map
+        invert_ax : str, default = None
+            'x' = invert x axis 
+            'y' = invert y axis 
+            'b' = invert both axis
+        **kwargs 
+            Additional arguments to pass to matplotlib function
+        
+        Returns
+        -------
+        axes : matplotlib axes
+            Perceptual map plot
+        '''
 
         self._check_is_fitted()
 
         chunks = [c.loc[:,[x_component, y_component]] for c in self._fitted_tuple if c is not None]
-
+        n_plots = len(chunks)
 
         # Build figure if none is passed
         if axes is None:
-            fig, axes = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=figsize, constrained_layout=True)
+            fig, axes = plt.subplots(nrows=2, ncols=2 if n_plots > 2 else 1, sharex=True, sharey=True, figsize=figsize, constrained_layout=True)
         
         colors = plt.cm.Dark2(range(0,len(chunks)))
 
@@ -309,6 +330,3 @@ class PMAP(CA):
         fig.supylabel('Component {} ({:.2f}% inertia)'.format(1, 100 * ei[1]))
 
         return axes
-        
-
-        
