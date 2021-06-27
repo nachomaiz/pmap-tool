@@ -105,6 +105,7 @@ class PMAP(CA):
 
     @property
     def _fitted_tuple(self) -> tuple:
+        '''Tuple of fitted data chunks for plotting loop'''
         t = [self.row_coordinates(self.core), self.column_coordinates(self.core)]
         if self.supp is not None:
             if self.supp[0] > 0:
@@ -167,7 +168,7 @@ class PMAP(CA):
             label = "Rows"
         elif axis == 1:
             label = "Columns"
-        else: 
+        else:
             raise ValueError("axis must be 0 or 1")
         
         label = 'Supp ' + label if supp else label
@@ -232,10 +233,10 @@ class PMAP(CA):
             if len(show_labels) != 2:
                 raise ValueError('Length of show_labels expected to be 2')
             if supp == 'only':
-                tup = tup[2:4]
+                tup = tup[2:4] # only uses supp data
                 pl_supp = (True, True)
             if supp == False:
-                tup = tup[:2]
+                tup = tup[:2] # only uses core data
         elif supp == True:
             if len(show_labels) != 4 and len(show_labels) != 2:
                 raise ValueError('Length of show_labels expected to be 2 or 4')
@@ -245,7 +246,7 @@ class PMAP(CA):
         else:
             raise ValueError("supp must be True, False or 'only'")            
 
-        # Main charting loop 
+        # Main plotting loop
         count = 0
         for i in tup:
             if i is not None:
@@ -275,3 +276,39 @@ class PMAP(CA):
                 raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
         
         return ax
+    
+    def subplots(self, figsize: tuple = (16,9), axes = None, x_component: int = 0,
+                y_component: int = 1, **kwargs):
+        '''Plots each chunk of data into a separate plot'''
+
+        self._check_is_fitted()
+
+        chunks = [c.loc[:,[x_component, y_component]] for c in self._fitted_tuple if c is not None]
+
+
+        # Build figure if none is passed
+        if axes is None:
+            fig, axes = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=figsize, constrained_layout=True)
+        
+        colors = plt.cm.Dark2(range(0,len(chunks)))
+
+        # Main plotting loop
+        count = 0
+        for ax, s, c in zip(axes.flat, self._fitted_tuple, colors):
+            if s is not None:
+                axis = count % 2 # 0 if rows 1 if cols
+                ax = plot.stylize_axis(ax, grid=False) # Add style
+                self._plot(s, ax, axis, True if count > 1 else False, color=c, **kwargs)
+                ax.legend()
+                count += 1
+        
+        # Text
+        ei = self.explained_inertia_
+        fig.suptitle('Principal Coordinates ({:.2f}% total inertia)'.format(100 * (ei[1]+ei[0])), fontsize=16)
+        fig.supxlabel('Component {} ({:.2f}% inertia)'.format(0, 100 * ei[0]))
+        fig.supylabel('Component {} ({:.2f}% inertia)'.format(1, 100 * ei[1]))
+
+        return axes
+        
+
+        
