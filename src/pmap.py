@@ -309,7 +309,7 @@ class PMAP(CA):
 
         # Build figure if none is passed
         if axes is None:
-            fig, axes = plt.subplots(nrows=2, ncols=2 if n_plots > 2 else 1, sharex=True, sharey=True, figsize=figsize, constrained_layout=True)
+            fig, axes = plt.subplots(nrows=2 if n_plots > 2 else 1, ncols=2, sharex=True, sharey=True, figsize=figsize, constrained_layout=True)
         
         colors = plt.cm.Dark2(range(0,len(chunks)))
 
