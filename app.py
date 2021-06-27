@@ -12,7 +12,7 @@ st.set_page_config(
 
 # Cached data and model load for faster interactivity
 @st.cache(allow_output_mutation=True)
-def build_pmap_model(X : pd.DataFrame, supp, n_components : int, n_iter: int) -> pmap.PMAP:
+def build_pmap_model(X : pd.DataFrame, supp: tuple, n_components : int, n_iter: int) -> pmap.PMAP:
     return pmap.PMAP(n_components, n_iter).fit(X, supp)
 
 @st.cache()
@@ -136,13 +136,13 @@ if uploaded_file:
         'ytick.color' : plot_colors[plot_theme]['fg'],
         'ytick.labelcolor' : plot_colors[plot_theme]['fg'],
         'axes.prop_cycle' : cycler.cycler('color',plt.cm.Dark2(range(0,4))),
-        'font.size' : '14.0'
+        'font.size' : '12.0'
     }
 
     # Plot Perceptual Map
     with plt.style.context(mplparams):
         fig, ax = plt.subplots(figsize=(16,9))
-        model.plot_coordinates(x_component=x_component, y_component=y_component, supp=plot_supp, ax=ax, invert_ax=invert_ax)
+        model.plot_map(x_component=x_component, y_component=y_component, supp=plot_supp, ax=ax, invert_ax=invert_ax)
     ax.grid(False) # force grid off
     st.pyplot(fig)
 
