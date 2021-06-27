@@ -11,7 +11,7 @@ class PMAP(CA):
     fit : COMPLETE
     fitted_supp_rows : COMPLETE
     fitted_supp_cols : COMPLETE
-    plot_coordinates : COMPLETE
+    plot_map : COMPLETE
     raw_data : COMPLETE
     fitted_data : COMPLETE
 
@@ -71,8 +71,20 @@ class PMAP(CA):
 
         return self
 
+    def _make_MultiIndex(self) -> pd.MultiIndex:
+        '''Returns rows and columns multi-index for formatted tables'''
+        _row_idx = tuple(zip(['Core' for c in self.core.index] + ['Supplementary' for c in range(self.supp[0])], self.data.index))
+        _row_idx = pd.MultiIndex.from_tuples(_row_idx)
+        
+        _col_idx = tuple(zip(['Core' for c in self.core.columns] + ['Supplementary' for c in range(self.supp[1])], self.data.columns))
+        _col_idx = pd.MultiIndex.from_tuples(_col_idx)
+
+        return _row_idx, _col_idx
+
     @property
     def fitted_supp_rows(self) -> pd.DataFrame:
+        if self.supp is None:
+            return None
         if self.supp_rows is not None:
             if self.supp[1] > 0:
                 return self.row_coordinates(self.supp_rows.iloc[:,:-self.supp[1]])
@@ -82,6 +94,8 @@ class PMAP(CA):
 
     @property
     def fitted_supp_cols(self) -> pd.DataFrame:
+        if self.supp is None:
+            return None
         if self.supp_cols is not None:
             if self.supp[0] > 0:
                 return self.column_coordinates(self.supp_cols.iloc[:-self.supp[0],:])
@@ -103,6 +117,47 @@ class PMAP(CA):
             
             t.extend([sr, sc])
         return tuple(t)
+    
+    @property
+    def raw_data(self) -> pd.DataFrame:
+        if self.supp:
+            _row_idx, _col_idx = self._make_MultiIndex()
+            return pd.DataFrame(self.data.values, _row_idx, _col_idx)
+        else:
+            return self.core
+
+    @property
+    def fitted_data(self) -> pd.DataFrame:
+        '''The model's fitted data formatted with multi-index'''
+        if self.supp:
+            _row_idx, _col_idx = self._make_MultiIndex()
+            _r = self.row_coordinates(self.core)
+            if self.supp[0] > 0:
+                _r = _r.append(self.fitted_supp_rows, ignore_index=True)
+            _c = self.column_coordinates(self.core)
+            if self.supp[1] > 0:
+                _c = _c.append(self.fitted_supp_cols, ignore_index=True)
+                        
+            return pd.concat([_r.set_index(_row_idx), _c.set_index(_col_idx)], keys=['Rows','Columns'])
+        else:
+            return pd.concat([self.row_coordinates(self.core), 
+                              self.column_coordinates(self.core)], 
+                              keys=['Rows','Columns'])
+    
+    def get_chart_data(self, x_component:int = 0, y_component:int = 1, invert_ax: str = None) -> pd.DataFrame:
+        '''Returns two dimensions of multi-indexed, invert-compatible fitted data'''
+        _d = self.fitted_data[[x_component, y_component]]
+        if invert_ax is not None:
+            if invert_ax == 'x':
+                _d[x_component] = _d[x_component] * -1
+            elif invert_ax == 'y':
+                _d[y_component] = _d[y_component] * -1
+            elif invert_ax == 'b':
+                _d = _d * -1
+            else:
+                raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
+        
+        return _d
 
     def _plot(self, X, ax, axis: int = 0, supp: bool = False, labels: bool = True, **kwargs):
         _, names, _, _ = util.make_labels_and_names(X)
@@ -220,52 +275,3 @@ class PMAP(CA):
                 raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
         
         return ax
-
-    def _make_MultiIndex(self) -> pd.MultiIndex:
-        _row_idx = tuple(zip(['Core' for c in self.core.index] + ['Supplementary' for c in range(self.supp[0])], self.data.index))
-        _row_idx = pd.MultiIndex.from_tuples(_row_idx)
-        
-        _col_idx = tuple(zip(['Core' for c in self.core.columns] + ['Supplementary' for c in range(self.supp[1])], self.data.columns))
-        _col_idx = pd.MultiIndex.from_tuples(_col_idx)
-
-        return _row_idx, _col_idx
-
-    @property
-    def raw_data(self) -> pd.DataFrame:
-        if self.supp:
-            _row_idx, _col_idx = self._make_MultiIndex()
-            return pd.DataFrame(self.data.values, _row_idx, _col_idx)
-        else:
-            return self.core
-
-    @property
-    def fitted_data(self) -> pd.DataFrame:
-        if self.supp:
-            _row_idx, _col_idx = self._make_MultiIndex()
-            _r = self.row_coordinates(self.core)
-            if self.supp[0] > 0:
-                _r = _r.append(self.fitted_supp_rows, ignore_index=True)
-            _c = self.column_coordinates(self.core)
-            if self.supp[1] > 0:
-                _c = _c.append(self.fitted_supp_cols, ignore_index=True)
-                        
-            return pd.concat([_r.set_index(_row_idx), _c.set_index(_col_idx)], keys=['Rows','Columns'])
-        else:
-            return pd.concat([self.row_coordinates(self.core), 
-                              self.column_coordinates(self.core)], 
-                              keys=['Rows','Columns'])
-    
-    def get_chart_data(self, x_component:int = 0, y_component:int = 1, invert_ax: str = None) -> pd.DataFrame:
-        '''Returns two dimensions of multi-indexed fitted data'''
-        _d = self.fitted_data[[x_component, y_component]]
-        if invert_ax is not None:
-            if invert_ax == 'x':
-                _d[x_component] = _d[x_component] * -1
-            elif invert_ax == 'y':
-                _d[y_component] = _d[y_component] * -1
-            elif invert_ax == 'b':
-                _d = _d * -1
-            else:
-                raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
-        
-        return _d
