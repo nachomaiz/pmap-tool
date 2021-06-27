@@ -136,7 +136,7 @@ if uploaded_file:
         'ytick.color' : plot_colors[plot_theme]['fg'],
         'ytick.labelcolor' : plot_colors[plot_theme]['fg'],
         'axes.prop_cycle' : cycler.cycler('color',plt.cm.Dark2(range(0,4))),
-        'font.size' : '14.0'
+        'font.size' : '12.0'
     }
 
     # Plot Perceptual Map

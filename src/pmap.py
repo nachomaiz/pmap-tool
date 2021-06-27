@@ -277,7 +277,7 @@ class PMAP(CA):
         
         return ax
     
-    def subplots(self, figsize: tuple = (16,9), axes = None, x_component: int = 0,
+    def plot_subplots(self, figsize: tuple = (16,9), axes = None, x_component: int = 0,
                 y_component: int = 1, **kwargs):
         '''Plots each chunk of data into a separate subplot.
         
