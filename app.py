@@ -45,8 +45,7 @@ if sample := st.checkbox('Load sample data'):
     filename = uploaded_file.split('/')[-1]
     st.info('Try using one supplementary column on this dataset.')
     if filename in uploaded_file:
-        filewrap = st.sidebar.empty()
-    filewrap.info(f'Using sample data: {filename}')
+        st.sidebar.info(f'Using sample data: {filename}')
 
 # Main app once data is ready
 if uploaded_file:
@@ -92,6 +91,9 @@ if uploaded_file:
     # Chart options
     invert_x = st.sidebar.checkbox("Invert x axis", False)
     invert_y = st.sidebar.checkbox("Invert y axis", False)
+
+    # Parse invert axis for PMAP functions
+    invert_ax = 'b' if invert_x and invert_y else 'x' if invert_x else 'y' if invert_y else None
     
     # Supplementary Data
 
@@ -114,9 +116,6 @@ if uploaded_file:
     else:
         supp = None
         plot_supp = False
-    
-    # Parse invert axis for PMAP functions
-    invert_ax = 'b' if invert_x and invert_y else 'x' if invert_x else 'y' if invert_y else None
 
     model = build_pmap_model(data, supp, n_components, n_iter)
 
@@ -139,18 +138,23 @@ if uploaded_file:
         'font.size' : '12.0'
     }
 
+    col1, col2, col3 = st.beta_columns(3)
+    with col1:
+        only_labels = st.checkbox('Labels only', False)
+    with col3:
+        stylize = st.checkbox('Show origin', True)
+
     # Plot Perceptual Map
     with plt.style.context(mplparams):
         fig, ax = plt.subplots(figsize=(16,9))
-        model.plot_map(x_component=x_component, y_component=y_component, supp=plot_supp, ax=ax, invert_ax=invert_ax)
-    ax.grid(False) # force grid off
+        model.plot_map(x_component=x_component, y_component=y_component, supp=plot_supp, ax=ax, invert_ax=invert_ax, only_labels=only_labels, stylize=stylize)
     st.pyplot(fig)
 
     st.write("You can download the coordinates to build your charts, or copy the image above.")
 
-    out_data = model.get_chart_data(x_component=x_component, y_component=y_component, invert_ax=invert_ax)
+    out_data = utils.get_pmap_data(model, x_component=x_component, y_component=y_component, invert_ax=invert_ax)
 
-    with st.beta_expander("Download Data"):
+    with st.beta_expander("Download Output"):
         st.markdown(utils.download_button(out_data.reset_index(), 'pmap-output.xlsx', 'Download output as excel'), unsafe_allow_html=True)
         st.dataframe(out_data)
 

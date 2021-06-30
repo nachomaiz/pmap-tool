@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import pandas as pd
 from prince.ca import CA
 from prince import util, plot
@@ -41,10 +42,11 @@ class PMAP(CA):
         
         self.data = X.copy()
         self.supp = supp
+        self.supp_rows = None
+        self.supp_cols = None
         
-        # cut out and store supplementary data
+        # check supp type
         if self.supp:
-            # check supp type
             if type(self.supp) == tuple:
                 if any([type(i) != int or i < 0 for i in self.supp]):
                     raise ValueError('Supplementary rows and columns must be non-negative integers')
@@ -54,14 +56,10 @@ class PMAP(CA):
             # cut and store supplementary data
             self.core = X.iloc[0:(X.shape[0] - self.supp[0]),
                                   0:(X.shape[1] - self.supp[1])]
-            if self.supp[0]:
-                self.supp_rows = X.iloc[-self.supp[0]:]
-            else:
-                self.supp_rows = None
-            if self.supp[1]:
-                self.supp_cols = X.iloc[:,-self.supp[1]:]
-            else:
-                self.supp_cols = None
+            if r := self.supp[0]:
+                self.supp_rows = X.iloc[-r:]
+            if c := self.supp[1]:
+                self.supp_cols = X.iloc[:,-c:]
         else:
             self.core = self.data
         
@@ -72,58 +70,43 @@ class PMAP(CA):
 
     def _make_MultiIndex(self) -> pd.MultiIndex:
         '''Returns rows and columns multi-index for formatted tables'''
-        _row_idx = tuple(zip(['Core' for c in self.core.index] + ['Supplementary' for c in range(self.supp[0])], self.data.index))
-        _row_idx = pd.MultiIndex.from_tuples(_row_idx)
+        row_idx = tuple(zip(['Core' for _ in self.core.index] + ['Supplementary' for _ in range(self.supp[0])], self.data.index))
+        row_idx = pd.MultiIndex.from_tuples(row_idx)
         
-        _col_idx = tuple(zip(['Core' for c in self.core.columns] + ['Supplementary' for c in range(self.supp[1])], self.data.columns))
-        _col_idx = pd.MultiIndex.from_tuples(_col_idx)
+        col_idx = tuple(zip(['Core' for _ in self.core.columns] + ['Supplementary' for _ in range(self.supp[1])], self.data.columns))
+        col_idx = pd.MultiIndex.from_tuples(col_idx)
 
-        return _row_idx, _col_idx
+        return row_idx, col_idx
 
     @property
     def fitted_supp_rows(self) -> pd.DataFrame:
-        if self.supp is None:
-            return None
         if self.supp_rows is not None:
-            if self.supp[1] > 0:
-                return self.row_coordinates(self.supp_rows.iloc[:,:-self.supp[1]])
-            else:
-                return self.row_coordinates(self.supp_rows)
+            r = self.supp_rows if self.supp_cols is None else self.supp_rows.iloc[:,:-self.supp[1]]
+            return self.row_coordinates(r)
         else: return None
 
     @property
     def fitted_supp_cols(self) -> pd.DataFrame:
-        if self.supp is None:
-            return None
         if self.supp_cols is not None:
-            if self.supp[0] > 0:
-                return self.column_coordinates(self.supp_cols.iloc[:-self.supp[0],:])
-            else:
-                return self.column_coordinates(self.supp_cols)
+            c = self.supp_cols if self.supp_rows is None else self.supp_cols.iloc[:-self.supp[0],:]
+            return self.column_coordinates(c)
         else: return None
 
     @property
     def _fitted_tuple(self) -> tuple:
         '''Tuple of fitted data chunks for plotting loop'''
-        t = [self.row_coordinates(self.core), self.column_coordinates(self.core)]
-        if self.supp is not None:
-            if self.supp[0] > 0:
-                sr = self.fitted_supp_rows
-            else: sr = None
-
-            if self.supp[1] > 0:
-                sc = self.fitted_supp_cols
-            else: sc = None
-            
-            t.extend([sr, sc])
-        return tuple(t)
+        row_label, _, col_label, _ = util.make_labels_and_names(self.data)
+        sr = self.fitted_supp_rows.rename_axis("Supp " + row_label) if self.fitted_supp_rows is not None else None
+        sc = self.fitted_supp_cols.rename_axis("Supp " + col_label) if self.fitted_supp_cols is not None else None
+        return (self.row_coordinates(self.core).rename_axis(row_label), self.column_coordinates(self.core).rename_axis(col_label), 
+                sr, sc)
     
     @property
     def raw_data(self) -> pd.DataFrame:
         '''The model's fitted data formatted with multi-index if supp data exists'''
         if self.supp:
-            _row_idx, _col_idx = self._make_MultiIndex()
-            return pd.DataFrame(self.data.values, _row_idx, _col_idx)
+            row_idx, col_idx = self._make_MultiIndex()
+            return pd.DataFrame(self.data.values, row_idx, col_idx)
         else:
             return self.core
 
@@ -131,62 +114,41 @@ class PMAP(CA):
     def fitted_data(self) -> pd.DataFrame:
         '''The model's fitted data formatted with multi-index'''
         if self.supp:
-            _row_idx, _col_idx = self._make_MultiIndex()
-            _r = self.row_coordinates(self.core)
+            row_idx, col_idx = self._make_MultiIndex()
+            r = self.row_coordinates(self.core)
             if self.supp[0] > 0:
-                _r = _r.append(self.fitted_supp_rows, ignore_index=True)
-            _c = self.column_coordinates(self.core)
+                r = r.append(self.fitted_supp_rows, ignore_index=True)
+            c = self.column_coordinates(self.core)
             if self.supp[1] > 0:
-                _c = _c.append(self.fitted_supp_cols, ignore_index=True)
+                c = c.append(self.fitted_supp_cols, ignore_index=True)
                         
-            return pd.concat([_r.set_index(_row_idx), _c.set_index(_col_idx)], keys=['Rows','Columns'])
+            return pd.concat([r.set_index(row_idx), c.set_index(col_idx)], keys=['Rows','Columns'])
         else:
-            return pd.concat([self.row_coordinates(self.core), 
-                              self.column_coordinates(self.core)], 
-                              keys=['Rows','Columns'])
-    
-    def get_chart_data(self, x_component:int = 0, y_component:int = 1, invert_ax: str = None) -> pd.DataFrame:
-        '''Returns two dimensions of multi-indexed, invert-compatible fitted data'''
-        _d = self.fitted_data[[x_component, y_component]]
-        if invert_ax is not None:
-            if invert_ax == 'x':
-                _d[x_component] = _d[x_component] * -1
-            elif invert_ax == 'y':
-                _d[y_component] = _d[y_component] * -1
-            elif invert_ax == 'b':
-                _d = _d * -1
-            else:
-                raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
-        
-        return _d
+            return pd.concat([self.row_coordinates(self.core), self.column_coordinates(self.core)], 
+                             keys=['Rows','Columns'])
 
-    def _plot(self, X, ax, axis: int = 0, supp: bool = False, labels: bool = True, **kwargs):
-        _, names, _, _ = util.make_labels_and_names(X)
+    def _plot(self, X, ax, labels = True, only_labels = False, **kwargs):
+        label, names, _, _ = util.make_labels_and_names(X)
         
-        # Parse label accounting for supplementary data
-        if axis == 0:
-            label = "Rows"
-        elif axis == 1:
-            label = "Columns"
-        else:
-            raise ValueError("axis must be 0 or 1")
-        
-        label = 'Supp ' + label if supp else label
-
         # Plot coordinates
         x = X.iloc[:,0]
         y = X.iloc[:,1]
-        ax.scatter(x, y, **kwargs, label=label)
+        scatter = ax.scatter(x, y, label=label, **kwargs)
+
+        if only_labels:
+            c = ax.get_legend_handles_labels()[0][0].get_facecolor()[0]
+            scatter.remove()
 
         # Add labels
         if labels:
             for xi, yi, lab in zip(x, y, names):
-                ax.annotate(lab, (xi, yi))
-
-        return ax
+                if only_labels:
+                    ax.annotate(lab, (xi, yi), ha='center', va='center', color=c)
+                else:
+                    ax.annotate(lab, (xi, yi))
 
     def plot_map(self, figsize: tuple = (16,9), ax = None, x_component: int = 0, y_component: int = 1,
-                         supp = False, show_labels: tuple = (True,True), invert_ax: str = None, **kwargs):
+                         supp = False, show_labels: tuple = (True,True), only_labels: bool = False, invert_ax: str = None, stylize=True, **kwargs):
         '''Plots perceptual map from trained self. 
 
         Parameters
@@ -222,40 +184,40 @@ class PMAP(CA):
             fig, ax = plt.subplots(figsize=figsize)
         
         # Add style
-        ax = plot.stylize_axis(ax, grid=False)
+        if stylize:
+            ax = plot.stylize_axis(ax, grid=False)
 
         tup = self._fitted_tuple
-        pl_supp = (False, False)
 
         # Change inputs based on function parameters
         # if supp == "only" or supp == False all tuples are len 2, if supp == True all tuples are len 4
-        if supp == 'only' or supp == False:
+        if supp in ('only', False):
             if len(show_labels) != 2:
                 raise ValueError('Length of show_labels expected to be 2')
-            if supp == 'only':
-                tup = tup[2:4] # only uses supp data
-                pl_supp = (True, True)
-            if supp == False:
-                tup = tup[:2] # only uses core data
+            tup = tup[2:4] if supp == 'only' else tup[0:2]
         elif supp == True:
-            if len(show_labels) != 4 and len(show_labels) != 2:
+            if len(show_labels) not in (2,4):
                 raise ValueError('Length of show_labels expected to be 2 or 4')
-            else :
-                show_labels = show_labels * 2 if len(show_labels) == 2 else show_labels
-            pl_supp = pl_supp + (True, True)
+            show_labels = show_labels * 2 if len(show_labels) == 2 else show_labels
         else:
-            raise ValueError("supp must be True, False or 'only'")            
+            raise ValueError("supp must be True, False or 'only'")
 
+        # for only_labels
+        legend_handles = []
+        
         # Main plotting loop
-        count = 0
-        for i in tup:
+        for i, l in zip(tup, show_labels):
             if i is not None:
-                axis = count % 2 # 0 if rows 1 if cols
-                ax = self._plot(i.loc[:,[x_component, y_component]], ax, axis, pl_supp[count], show_labels[count], **kwargs)
-            count += 1
+                self._plot(i.loc[:,[x_component, y_component]], ax, l, only_labels, **kwargs)
+                if only_labels and l:
+                    c = next(ax._get_lines.prop_cycler)['color']
+                    legend_handles.append(mpatches.Patch(color=c, label=i.index.name))
 
-        # Legend
-        ax.legend()
+        # Manually build legend if only_labels is True
+        if only_labels:
+            ax.legend(handles=legend_handles)
+        else:
+            ax.legend()
 
         # Text
         ei = self.explained_inertia_
@@ -277,7 +239,7 @@ class PMAP(CA):
         
         return ax
     
-    def plot_subplots(self, figsize: tuple = (16,9), axes = None, x_component: int = 0,
+    def plot_subplots(self, figsize: tuple = (16,9), axs = None, x_component: int = 0,
                 y_component: int = 1, **kwargs):
         '''Plots each chunk of data into a separate subplot.
         
@@ -285,7 +247,7 @@ class PMAP(CA):
         ----------
         figsize : tuple(int)
             Size of the returned plot. Ignored if axes is not None
-        axes : matplotlib Axes, default = None
+        axs : matplotlib Axes, default = None
             The axes to plot into. Defaults to None, creating a new axes
         x_component, y_component : int
             Component from the trained self to use as x and y axis in the perceptual map
@@ -304,24 +266,27 @@ class PMAP(CA):
 
         self._check_is_fitted()
 
-        chunks = [c.loc[:,[x_component, y_component]] for c in self._fitted_tuple if c is not None]
-        n_plots = len(chunks)
+        chunks = tuple(c.loc[:,[x_component, y_component]] if c is not None else None for c in self._fitted_tuple)
+        n_plots = len([c for c in chunks if c is not None])
 
         # Build figure if none is passed
-        if axes is None:
-            fig, axes = plt.subplots(nrows=2 if n_plots > 2 else 1, ncols=2, sharex=True, sharey=True, figsize=figsize, constrained_layout=True)
+        if axs is None:
+            fig, axs = plt.subplots(nrows=2 if n_plots > 2 else 1, ncols=2, sharex=True, sharey=True, figsize=figsize, constrained_layout=True)
         
-        colors = plt.cm.Dark2(range(0,len(chunks)))
+        colors = plt.cm.Dark2(range(0,4 if n_plots > 2 else 2))
 
         # Main plotting loop
-        count = 0
-        for ax, s, c in zip(axes.flat, self._fitted_tuple, colors):
+        for ax, s, c in zip(axs.flat, chunks, colors):
             if s is not None:
-                axis = count % 2 # 0 if rows 1 if cols
                 ax = plot.stylize_axis(ax, grid=False) # Add style
-                self._plot(s, ax, axis, True if count > 1 else False, color=c, **kwargs)
+                self._plot(s, ax, color=c, **kwargs)
                 ax.legend()
-                count += 1
+        
+        # Hide empty plots
+        if n_plots == 3:
+            for ax in axs.flat:
+                if not ax.lines:
+                    ax.remove()
         
         # Text
         ei = self.explained_inertia_
@@ -329,4 +294,4 @@ class PMAP(CA):
         fig.supxlabel('Component {} ({:.2f}% inertia)'.format(0, 100 * ei[0]))
         fig.supylabel('Component {} ({:.2f}% inertia)'.format(1, 100 * ei[1]))
 
-        return axes
+        return axs
