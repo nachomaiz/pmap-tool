@@ -15,6 +15,20 @@ def clean_pct(df: pd.DataFrame, keep_tag: bool = False) -> pd.DataFrame:
             df.columns = df.columns.str.replace(r' pct', '')
     return df
 
+def get_pmap_data(pmap, x_component:int = 0, y_component:int = 1, invert_ax: str = None) -> pd.DataFrame:
+    '''Returns two dimensions of multi-indexed, invert-compatible fitted data'''
+    d = pmap.fitted_data[[x_component, y_component]]
+    if invert_ax is not None:
+        if invert_ax == 'x':
+            d[x_component] = d[x_component] * -1
+        elif invert_ax == 'y':
+            d[y_component] = d[y_component] * -1
+        elif invert_ax == 'b':
+            d = d * -1
+        else:
+            raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
+    
+    return d
 
 # Download button for streamlit app
 def download_button(object_to_download, download_filename : str, button_text : str, pickle_it : bool = False) -> str:
