@@ -340,14 +340,14 @@ class Pmap(TransformerMixin):
         x = X.iloc[:, 0]
         y = X.iloc[:, 1]
 
-        scatter = ax.scatter(x, y, label=data_name, c=color, **kwargs)
+        scatter = ax.scatter(x, y, label=data_name, color=color, **kwargs)
 
         # Add labels
         if labels:
             if not only_labels:
                 annot_kwargs = {"ha": "left", "va": "bottom"}
             else:
-                annot_kwargs = {"ha": "center", "va": "center", "c": color}
+                annot_kwargs = {"ha": "center", "va": "center", "color": color}
                 scatter.remove()
 
             for xi, yi, lab in zip(x, y, names):

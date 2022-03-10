@@ -264,13 +264,13 @@ def main():
         st.dataframe(data)
 
     plot_params, context_params = get_plot_params(model)
-    
-    # st.write(plot_params)
         
     with plt.style.context(context_params):
         fig, ax = plt.subplots(figsize=(16,9))
         model.plot_map(ax=ax, **plot_params)
     st.pyplot(fig)
+    
+    st.warning("Data download not yet available.")
     
     st.info("""Developed with ❤ by [nachomaiz](https://github.com/nachomaiz)
             based on the [prince](https://github.com/MaxHalford/prince) and
