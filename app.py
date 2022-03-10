@@ -7,7 +7,7 @@ import cycler
 import streamlit as st
 
 from src import POSSIBLE_ROTATIONS
-from src.pmap2 import Pmap
+from src.pmap import Pmap
 from src.utils import download_button
 
 SAMPLE_PATH = "data/brand data.xlsx"
