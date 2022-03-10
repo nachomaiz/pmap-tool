@@ -2,9 +2,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
 import cycler
-from . import pmap
-
-from src import utils
+from . import pmap, utils
 
 st.set_page_config(
     page_title="Perceptual Map Tool",

@@ -8,7 +8,7 @@ import streamlit as st
 
 from src import POSSIBLE_ROTATIONS
 from src.pmap import Pmap
-from src.utils import download_button
+from src.utils import clean_pct, download_button
 
 SAMPLE_PATH = "data/brand data.xlsx"
 
@@ -74,7 +74,7 @@ def get_supp_params(
     """Get Supplementary data parameters."""
 
     supp_rows, supp_cols = [], []
-    max_supp_rows, max_supp_cols = data.shape[0] - 3, data.shape[1] - 3
+    max_supp_rows, max_supp_cols = (i - 3 for i in data.shape)
 
     if st.sidebar.checkbox(
         "Supplementary data", help="For plotting grouped averages, factors, etc."
@@ -83,7 +83,10 @@ def get_supp_params(
         # Show only if each data shape dimension is large enough
         if n_rows > 3:
             supp_rows = st.sidebar.multiselect(
-                "Supplementary rows", data.index, help=f"Max: {max_supp_rows}"
+                "Supplementary rows",
+                data.index,
+                format_func=clean_pct,
+                help=f"Max: {max_supp_rows}",
             )
 
             if len(supp_rows) > max_supp_rows:
@@ -92,7 +95,10 @@ def get_supp_params(
 
         if n_cols > 3:
             supp_cols = st.sidebar.multiselect(
-                "Supplementary columns", data.columns, help=f"Max: {max_supp_cols}"
+                "Supplementary columns",
+                data.columns,
+                format_func=clean_pct,
+                help=f"Max: {max_supp_cols}",
             )
 
             if len(supp_cols) > max_supp_cols:
@@ -161,47 +167,60 @@ def sidebar() -> tuple[Pmap, pd.DataFrame]:
 
     return model, data
 
+
 def get_plot_params(model: Pmap) -> tuple[dict, dict]:
     """Get plot parameters."""
     with st.expander("Plot Parameters"):
-        
-        plot_colors = {"Dark" : {'bg':'#0E1117', 'fg':'#FAFAFA'},
-                   "Light" : {'bg':'#FFFFFF', 'fg':'#0E1117'}}
-        
-        plot_theme = st.select_slider("Plot theme", ["Dark", "Light"], "Dark")
-        
-        context_params = {
-            'figure.facecolor' : plot_colors[plot_theme]['bg'],
-            'text.color' : plot_colors[plot_theme]['fg'],
-            'axes.facecolor' : plot_colors[plot_theme]['bg'],
-            'axes.edgecolor' : plot_colors[plot_theme]['fg'],
-            'axes.labelcolor' : plot_colors[plot_theme]['fg'],
-            'xtick.color' : plot_colors[plot_theme]['fg'],
-            'xtick.labelcolor' : plot_colors[plot_theme]['fg'],
-            'ytick.color' : plot_colors[plot_theme]['fg'],
-            'ytick.labelcolor' : plot_colors[plot_theme]['fg'],
-            'axes.prop_cycle' : cycler.cycler('color',plt.cm.Dark2(range(0,4))),
-            'font.size' : '12.0'
+
+        plot_colors = {
+            "Dark": {"bg": "#0E1117", "fg": "#FAFAFA"},
+            "Light": {"bg": "#FFFFFF", "fg": "#0E1117"},
         }
-        
+
+        plot_theme = st.select_slider("Plot theme", ["Dark", "Light"], "Dark")
+
+        context_params = {
+            "figure.facecolor": plot_colors[plot_theme]["bg"],
+            "text.color": plot_colors[plot_theme]["fg"],
+            "axes.facecolor": plot_colors[plot_theme]["bg"],
+            "axes.edgecolor": plot_colors[plot_theme]["fg"],
+            "axes.labelcolor": plot_colors[plot_theme]["fg"],
+            "xtick.color": plot_colors[plot_theme]["fg"],
+            "xtick.labelcolor": plot_colors[plot_theme]["fg"],
+            "ytick.color": plot_colors[plot_theme]["fg"],
+            "ytick.labelcolor": plot_colors[plot_theme]["fg"],
+            "axes.prop_cycle": cycler.cycler("color", plt.cm.Dark2(range(0, 4))),
+            "font.size": "12.0",
+        }
+
         plot_params = {}
-        
+
         col1_1, col1_2 = st.columns(2)
         with col1_1:
-            plot_params["x_component"] = st.slider("Horizontal component", 0, model.n_components, 0)
+            plot_params["x_component"] = st.slider(
+                "Horizontal component", 0, model.n_components, 0
+            )
 
         with col1_2:
-            plot_params["y_component"] = st.slider("Vertical component", 0, model.n_components, 1)
-        
+            plot_params["y_component"] = st.slider(
+                "Vertical component", 0, model.n_components, 1
+            )
+
         st.write("Data to plot:")
         col2_1, col2_2 = st.columns(2)
         with col2_1:
             plot_core = st.checkbox("Core", True)
         with col2_2:
             plot_supp = st.checkbox("Supplementary", True)
-            
-        plot_params["supp"] = True if plot_supp and plot_core else "only" if plot_supp and not plot_core else False
-        
+
+        plot_params["supp"] = (
+            True
+            if plot_supp and plot_core
+            else "only"
+            if plot_supp and not plot_core
+            else False
+        )
+
         st.write("Show Labels:")
         col3_1, col3_2, col3_3, col3_4 = st.columns(4)
         with col3_1:
@@ -212,7 +231,7 @@ def get_plot_params(model: Pmap) -> tuple[dict, dict]:
             srow_l = st.checkbox("Supp Rows", True)
         with col3_4:
             scol_l = st.checkbox("Supp Columns", True)
-            
+
         plot_params["show_labels"] = [row_l, col_l, srow_l, scol_l]
 
         st.write("Style:")
@@ -223,9 +242,17 @@ def get_plot_params(model: Pmap) -> tuple[dict, dict]:
         with col4_2:
             invert_x = st.checkbox("Invert x axis")
             invert_y = st.checkbox("Invert y axis")
-        
-        plot_params["invert_ax"] = 'b' if invert_x and invert_y else 'x' if invert_x else 'y' if invert_y else None
-    
+
+        plot_params["invert_ax"] = (
+            "b"
+            if invert_x and invert_y
+            else "x"
+            if invert_x
+            else "y"
+            if invert_y
+            else None
+        )
+
     return plot_params, context_params
 
 
@@ -264,38 +291,26 @@ def main():
         st.dataframe(data)
 
     plot_params, context_params = get_plot_params(model)
-        
+
     with plt.style.context(context_params):
-        fig, ax = plt.subplots(figsize=(16,9))
+        fig, ax = plt.subplots(figsize=(16, 9))
         model.plot_map(ax=ax, **plot_params)
     st.pyplot(fig)
-    
+
+    st.write(
+        "You can download the coordinates to build your charts, or copy the image above."
+    )
+
     st.warning("Data download not yet available.")
-    
-    st.info("""Developed with ❤ by [nachomaiz](https://github.com/nachomaiz)
+
+    st.info(
+        """Developed with ❤ by [nachomaiz](https://github.com/nachomaiz)
             based on the [prince](https://github.com/MaxHalford/prince) and
             [factor_analyzer](https://github.com/ets/factor_analyzer) packages. 
             [GitHub repo](https://github.com/nachomaiz/pmap).
             """
-        )
+    )
+
 
 if __name__ == "__main__":
     main()
-
-
-# def get_pmap_data(
-#     pmap: Pmap, x_component: int = 0, y_component: int = 1, invert_ax: str = None
-# ) -> pd.DataFrame:
-#     """Returns two dimensions of multi-indexed, invert-compatible fitted data"""
-#     d = pmap.result[[x_component, y_component]]
-#     if invert_ax is not None:
-#         if invert_ax == "x":
-#             d[x_component] = d[x_component] * -1
-#         elif invert_ax == "y":
-#             d[y_component] = d[y_component] * -1
-#         elif invert_ax == "b":
-#             d = d * -1
-#         else:
-#             raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
-
-#     return d
