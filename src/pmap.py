@@ -1,155 +1,377 @@
+from typing import Any, Literal, Optional, Union
+from matplotlib.axes import Axes
+from pandas.core.indexing import Index
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+
 import pandas as pd
+import numpy as np
 from prince.ca import CA
 from prince import util, plot
+import sklearn.utils.validation
+from sklearn.exceptions import NotFittedError
+from sklearn.base import TransformerMixin
+from factor_analyzer.rotator import Rotator
 
-class PMAP(CA):
-    '''Perceptual Map object based on Correspondence Analysis.
+import src.slicer as slc
+from src.utils import isin_index, invert_plot_axis
 
-    Implemented:
-    __init__ : COMPLETE
-    fit : COMPLETE
-    fitted_supp_rows : COMPLETE
-    fitted_supp_cols : COMPLETE
-    plot_map : COMPLETE
-    raw_data : COMPLETE
-    fitted_data : COMPLETE
 
-    '''
-    def __init__(self, n_components: int = 2, n_iter: int = 10, copy: bool = True, check_input: bool = True, benzecri: bool = False,
-                 random_state: int = None, engine: str = 'auto'):
-        super().__init__(n_components=n_components, n_iter=n_iter, copy=copy, check_input=check_input, benzecri=benzecri,
-                 random_state=random_state, engine=engine)
-        
-    def fit(self, X: pd.DataFrame, supp: tuple = None, y=None):
-        '''Fits PMAP to dataframe, handling supplementary data separately.
+class NoSupplementaryDataError(Exception):
+    """Exception for when PMAP has no supplementary data."""
+
+
+class Pmap(TransformerMixin):
+    """Perceptual Map object based on prince Correspondence Analysis (CA).
+
+    Parameters
+    ----------
+    n_components: int, default = 5
+        Number of reduced dimensions to calculate.
+
+    CA kwargs
+    ---------
+    n_iter: int, default = 10
+        Maximum number of iterations for dimensionality reduction.
+    copy: bool, default = True
+        Copy inputs so data is not overwritten.
+    check_input: bool, default = True
+        Check inputs for positive values.
+    benzecri: bool, default = False
+        Benzecri (not sure what this does. Default from prince package is False)
+    random_state: int, default = None
+        Set random state for reproducible results.
+    engine: str, default = auto
+        Sets engine for dimensionality reduction. See prince reference materials.
+
+    Attributes
+    ----------
+    data : pandas.DataFrame
+        DataFrame passed to fit function.
+    supp_rows, supp_cols : pandas.Index
+        Index of supplementary rows/columns in the data df.
+    estimator : prince.CA
+        Correspondence Analysis estimator.
+    core : pandas.DataFrame | None
+        DataFrame containing data used in fit function,
+        excluding supplementary data.
+        Returns None if estimator is not fitted.
+    supp_rows_slice, supp_cols_slice : pandas.DataFrame | None
+        Sliced supplementary rows/columns. Helpful for using transform.
+        Returns None if estimator is not fitted.
+    result_dict : dict[str, pandas.DataFrame]
+        Dictionary of data name and DataFrame.
+        Useful for iterating.
+    result : pandas.DataFrame
+        Equivalent to running transform method on fit data.
+
+    Methods
+    -------
+    fit : Fits Pmap with a pandas DataFrame and optional supplementary data.
+
+    transform : Transforms pandas DataFrame returning row, column and supplementary
+        coordinates.
+
+    fit_transform : Equivalent to using fit, then transform.
+
+
+
+    """
+
+    def __init__(
+        self,
+        n_components: int = 5,
+        rotation: Optional[str] = None,
+        rotation_kwargs: Optional[dict[str, Any]] = None,
+        **kwargs,
+    ) -> None:
+
+        self.rotation = rotation
+        self._rotation_kwargs = rotation_kwargs
+
+        self.estimator = CA(n_components=n_components, **kwargs)
+        self.n_components = self.estimator.n_components
+
+        self.data: Union[pd.DataFrame, None] = None
+        self.supp_rows: Union[pd.DataFrame, None] = None
+        self.supp_cols: Union[pd.DataFrame, None] = None
+        self.rotator: Union[Rotator, None] = None
+
+    @property
+    def rotation_kwargs(self) -> dict[str, Any]:
+        """
+        Modifies rotation keyword arguments to approximate SPSS rotation outputs.
+
+        Explicitly passing 'rotation_kwargs' with the appropriate arguments will override SPSS parameters.
+
+        Will add new conditions as needed and tested against SPSS.
+        """
+
+        if self.data is None:
+            msg = f"This {self.__class__.__name__} instance is not fitted yet."
+            raise NotFittedError(msg)
+
+        spss_preset: dict[str, Any] = {}
+
+        if self.rotation == "equamax":
+            spss_preset.update({"kappa": self.n_components / (2 * self.data.shape[1])})
+
+        if self._rotation_kwargs is not None:
+            return spss_preset | self._rotation_kwargs  # Keeps passed kwargs over preset.
+
+        return spss_preset
+
+    def _check_is_fitted(self) -> None:
+        """Convenience method for checking estimator is fitted."""
+        sklearn.utils.validation.check_is_fitted(self.estimator, "total_inertia_")
+
+    def fit(
+        self,
+        X: pd.DataFrame,
+        y=None,
+        supp_rows: Optional[Union[int, list, Index]] = None,
+        supp_cols: Optional[Union[int, list, Index]] = None,
+    ):
+        """Fits PMAP to dataframe, handling supplementary data separately.
 
         Parameters
         ----------
         X : dataframe to fit PMAP
-            This dataframe should have cases by row and attributes by columns. Case labels should be reflected in the index.
-        supp : None, tuple
-            The number of supplementary rows and/or columns in the data. (supp_rows, supp_cols) Defaults to None.
+            This dataframe should have cases by row and attributes by columns.
+            Case labels should be reflected in the index.
+        y : (dependent) None
+            Scikit-learn design pattern. Attribute is ignored.
+        supp_rows, supp_cols : list | Index, default = None
+            Rows and/or columns that should be treated as supplementary data.
+            Accepts list of index/column values or pandas Index object.
 
         Returns
         -------
-        new_PMAP : PMAP object fitted to X
-        '''
-        # check X type
-        if not isinstance(X, pd.DataFrame):
-            raise TypeError('X is not a pandas DataFrame.')
-        
-        self.data = X.copy()
-        self.supp = supp
-        self.supp_rows = None
-        self.supp_cols = None
-        
-        # check supp type
-        if self.supp:
-            if type(self.supp) == tuple:
-                if any([type(i) != int or i < 0 for i in self.supp]):
-                    raise ValueError('Supplementary rows and columns must be non-negative integers')
-            else:
-                raise TypeError('supp must be a tuple of non-negative integers')
+        PMAP object fitted to X.
+        """
+        self.data = X
 
-            # cut and store supplementary data
-            self.core = X.iloc[0:(X.shape[0] - self.supp[0]),
-                                  0:(X.shape[1] - self.supp[1])]
-            if r := self.supp[0]:
-                self.supp_rows = X.iloc[-r:]
-            if c := self.supp[1]:
-                self.supp_cols = X.iloc[:,-c:]
-        else:
-            self.core = self.data
-        
-        # pass core data to CA fit method
-        super().fit(X=self.core, y=y)
+        if self.rotation:
+            self.rotator = Rotator(self.rotation, **self.rotation_kwargs)
+
+        if supp_rows is not None:
+            if isinstance(supp_rows, int):
+                supp_rows = X.index[-supp_rows:]
+            elif isinstance(supp_rows, list):
+                supp_rows = pd.Index(supp_rows)
+            isin_index(X.index, supp_rows, "index")
+
+        if supp_cols is not None:
+            if isinstance(supp_cols, int):
+                supp_cols = X.columns[-supp_cols:]
+            if isinstance(supp_cols, list):
+                supp_cols = pd.Index(supp_cols)
+            isin_index(X.columns, supp_cols, "columns")
+
+        self.supp_rows = supp_rows
+        self.supp_cols = supp_cols
+
+        self.estimator = self.estimator.fit(self.core)
 
         return self
 
-    def _make_MultiIndex(self) -> pd.MultiIndex:
-        '''Returns rows and columns multi-index for formatted tables'''
-        row_idx = tuple(zip(['Core' for _ in self.core.index] + ['Supplementary' for _ in range(self.supp[0])], self.data.index))
-        row_idx = pd.MultiIndex.from_tuples(row_idx)
-        
-        col_idx = tuple(zip(['Core' for _ in self.core.columns] + ['Supplementary' for _ in range(self.supp[1])], self.data.columns))
-        col_idx = pd.MultiIndex.from_tuples(col_idx)
+    def _rotate(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Rotate compoment loadings."""
+        self._check_is_fitted()
 
-        return row_idx, col_idx
+        return pd.DataFrame(
+            self.rotator.fit_transform(X), index=X.index, columns=X.columns
+        )
+
+    def row_coords(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Convenience method for estimator row_coordinates function."""
+        res = self.estimator.row_coordinates(X)
+
+        if self.rotation is not None:
+            return self._rotate(res)
+
+        return res
+
+    def col_coords(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Convenience method for estimator column_coordinates function."""
+        res = self.estimator.column_coordinates(X)
+
+        if self.rotation is not None:
+            return self._rotate(res)
+
+        return res
+
+    def _result_dict(
+        self,
+        X: pd.DataFrame,
+        rows: Optional[Index],
+        cols: Optional[Index],
+    ) -> dict[str, pd.DataFrame]:
+        """Generate dictionary of results from arbitrary inputs."""
+
+        self._check_is_fitted()
+
+        result: dict[str, pd.DataFrame] = {}
+
+        if not X.columns.equals(cols) and not X.index.equals(rows):
+
+            isin_index(X.index, self.core.index, "index")
+            isin_index(X.columns, self.core.columns, "columns")
+
+            core = slc.supp_slice(X, rows, cols, "core")
+
+            result["Rows"] = self.row_coords(core)
+            result["Columns"] = self.col_coords(core)
+
+        supp_rows = slc.supp_slice(X, rows, cols, "rows")
+        supp_cols = slc.supp_slice(X, rows, cols, "columns")
+
+        if supp_rows is not None and supp_rows.columns.equals(self.core.columns):
+            result["Supp Rows"] = self.row_coords(supp_rows)
+
+        if supp_cols is not None and supp_cols.index.equals(self.core.index):
+            result["Supp Cols"] = self.col_coords(supp_cols)
+
+        return result
 
     @property
-    def fitted_supp_rows(self) -> pd.DataFrame:
-        if self.supp_rows is not None:
-            r = self.supp_rows if self.supp_cols is None else self.supp_rows.iloc[:,:-self.supp[1]]
-            return self.row_coordinates(r)
-        else: return None
+    def result_dict(self) -> dict[str, pd.DataFrame]:
+        """Dictionary of results from fitted data."""
+        return self._result_dict(self.data, self.supp_rows, self.supp_cols)
+
+    def _transform(self, X: pd.DataFrame) -> dict[str, pd.DataFrame]:
+        """Transforms input data based on fit parameters.
+        Rows or columns not in the original core data will be
+        treated as supplementary data.
+        """
+
+        self._check_is_fitted()
+
+        diff_rows = X.index.difference(self.core.index)
+        diff_cols = X.columns.difference(self.core.columns)
+
+        return self._result_dict(X, diff_rows, diff_cols)
+
+    def transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
+        """Transforms input data based on fit parameters.
+        Rows or columns not in the original core data will be
+        treated as supplementary data.
+        """
+        return pd.concat(self._transform(X))
+
+    ## ATTRIBUTES
+    @property
+    def core(self) -> pd.DataFrame | None:
+        """Data for model fitting.
+        Stripped of supplementary data if it exists."""
+
+        if self.data is None:
+            return None
+        return slc.supp_slice(self.data, self.supp_rows, self.supp_cols, "core")
 
     @property
-    def fitted_supp_cols(self) -> pd.DataFrame:
-        if self.supp_cols is not None:
-            c = self.supp_cols if self.supp_rows is None else self.supp_cols.iloc[:-self.supp[0],:]
-            return self.column_coordinates(c)
-        else: return None
+    def supp_rows_slice(self) -> pd.DataFrame | None:
+        """Transformed supplementary rows from fit method."""
+
+        if self.supp_rows is None:
+            return None
+        return slc.supp_slice(self.data, self.supp_rows, self.supp_cols, "rows")
 
     @property
-    def _fitted_tuple(self) -> tuple:
-        '''Tuple of fitted data chunks for plotting loop'''
-        row_label, _, col_label, _ = util.make_labels_and_names(self.data)
-        sr = self.fitted_supp_rows.rename_axis("Supp " + row_label) if self.fitted_supp_rows is not None else None
-        sc = self.fitted_supp_cols.rename_axis("Supp " + col_label) if self.fitted_supp_cols is not None else None
-        return (self.row_coordinates(self.core).rename_axis(row_label), self.column_coordinates(self.core).rename_axis(col_label), 
-                sr, sc)
-    
-    @property
-    def raw_data(self) -> pd.DataFrame:
-        '''The model's fitted data formatted with multi-index if supp data exists'''
-        if self.supp:
-            row_idx, col_idx = self._make_MultiIndex()
-            return pd.DataFrame(self.data.values, row_idx, col_idx)
-        else:
-            return self.core
+    def supp_cols_slice(self) -> pd.DataFrame | None:
+        """Transformed supplementary cols from fit method."""
+
+        if self.supp_cols is None:
+            return None
+        return slc.supp_slice(self.data, self.supp_rows, self.supp_cols, "columns")
 
     @property
-    def fitted_data(self) -> pd.DataFrame:
-        '''The model's fitted data formatted with multi-index'''
-        if self.supp:
-            row_idx, col_idx = self._make_MultiIndex()
-            r = self.row_coordinates(self.core)
-            if self.supp[0] > 0:
-                r = r.append(self.fitted_supp_rows, ignore_index=True)
-            c = self.column_coordinates(self.core)
-            if self.supp[1] > 0:
-                c = c.append(self.fitted_supp_cols, ignore_index=True)
-                        
-            return pd.concat([r.set_index(row_idx), c.set_index(col_idx)], keys=['Rows','Columns'])
-        else:
-            return pd.concat([self.row_coordinates(self.core), self.column_coordinates(self.core)], 
-                             keys=['Rows','Columns'])
+    def result(self) -> pd.DataFrame:
+        """DataFrame of result."""
+        return pd.concat(self.result_dict)
 
-    def _plot(self, X, ax, labels = True, only_labels = False, **kwargs):
-        label, names, _, _ = util.make_labels_and_names(X)
-        
+    ## PLOTTING
+    def plot_eigenvalues(self) -> tuple[Axes, Axes]:
+        """Plot eigenvalues from fitted data.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            _description_
+
+        Returns
+        -------
+        tuple[Figure, Axes, Axes]
+            matplotlib Figure and Axes objects
+        """
+        f, ax1 = plt.subplots()
+
+        eigen = self.estimator.eigenvalues_
+
+        ax1.bar(x=range(self.n_components), height=eigen, color=["red"])
+        ax1.set_ylabel("Eigenvalues")
+
+        ax2 = plt.twinx()
+
+        ax2.set_ylim(0, 1.05)
+
+        ax2.plot(
+            range(self.n_components), np.cumsum([val / sum(eigen) for val in eigen])
+        )
+        ax2.set_ylabel("Cumulative Variance Explained")
+
+        return ax1, ax2
+
+    @staticmethod
+    def _plot_map(
+        X: pd.DataFrame,
+        ax: Axes,
+        data_name: str,
+        color: Optional[str],
+        labels: bool = True,
+        only_labels: bool = False,
+        **kwargs,
+    ) -> None:
+        """Refactored plot function to enable loops."""
+        _, names, _, _ = util.make_labels_and_names(X)
+
         # Plot coordinates
-        x = X.iloc[:,0]
-        y = X.iloc[:,1]
-        scatter = ax.scatter(x, y, label=label, **kwargs)
+        x = X.iloc[:, 0]
+        y = X.iloc[:, 1]
 
-        if only_labels:
-            c = ax.get_legend_handles_labels()[0][0].get_facecolor()[0]
-            scatter.remove()
+        scatter = ax.scatter(x, y, label=data_name, c=color, **kwargs)
 
         # Add labels
         if labels:
-            for xi, yi, lab in zip(x, y, names):
-                if only_labels:
-                    ax.annotate(lab, (xi, yi), ha='center', va='center', color=c)
-                else:
-                    ax.annotate(lab, (xi, yi))
+            if not only_labels:
+                annot_kwargs = {"ha": "left", "va": "bottom"}
+            else:
+                annot_kwargs = {"ha": "center", "va": "center", "c": color}
+                scatter.remove()
 
-    def plot_map(self, figsize: tuple = (16,9), ax = None, x_component: int = 0, y_component: int = 1,
-                         supp = False, show_labels: tuple = (True,True), only_labels: bool = False, invert_ax: str = None, stylize=True, **kwargs):
-        '''Plots perceptual map from trained self. 
+            for xi, yi, lab in zip(x, y, names):
+                ax.annotate(str(lab), (xi, yi), **annot_kwargs)
+
+    def plot(self, *args, **kwargs) -> plt.Axes:
+        """Generic plotting function for pipelines."""
+        return self.plot_map(*args, **kwargs)
+
+    def plot_map(
+        self,
+        X: Optional[pd.DataFrame] = None,
+        x_component: int = 0,
+        y_component: int = 1,
+        supp: bool | Literal["only"] = False,
+        figsize: tuple[int, int] = (16, 9),
+        ax: Optional[plt.Axes] = None,
+        show_labels: Optional[list[bool]] = None,
+        only_labels: bool = True,
+        invert_ax: Optional[Literal["x", "y", "b"]] = None,
+        stylize: bool = True,
+        **kwargs,
+    ) -> plt.Axes:
+        """Plots perceptual map from trained self.
 
         Parameters
         ----------
@@ -158,140 +380,100 @@ class PMAP(CA):
         ax : matplotlib Axis, default = None
             The axis to plot into. Defaults to None, creating a new ax
         x_component, y_component : int
-            Component from the trained self to use as x and y axis in the perceptual map
+            Component from the trained self to use as x and y axis
+            in the perceptual map.
         supp : bool, 'only'
-            Plot supplementary data (if present). 'only' will suppress core data and show supplementary data instead.
-        show_labels : tuple(bool)
-            (bool, bool) = show labels for [rows, columns]. If supp = True, shows all rows or columns
-            (bool, bool, bool, bool) = only if supp == True, show labels for [rows, columns, supp rows, supp columns]
+            Plot supplementary data (if present).
+            'only' will suppress core data and show supplementary data instead.
+            Ignored if no supplementary data exists.
+        show_labels : list[bool], default = None
+            [bool, bool] = show labels for [rows, columns].
+                If supp = True, shows all rows or columns
+            [bool, bool, bool, bool] = only if supp == True,
+                show labels for [rows, columns, supp rows, supp columns]
+            If None, defaults to [True, True]
+        only_labels : bool, default = True
+            Only plot labels. Labels will be centered on the original coordinates.
         invert_ax : str, default = None
-            'x' = invert x axis 
-            'y' = invert y axis 
+            'x' = invert x axis
+            'y' = invert y axis
             'b' = invert both axis
-        **kwargs 
-            Additional arguments to pass to matplotlib function
-        
+        stylize: bool, default = True
+            Add axis origin lines to ax.
+        **kwargs
+            Additional arguments to pass to matplotlib plotting function.
+
         Returns
         -------
-        ax : matplotlib axis
-            Perceptual map plot
-        '''
+        ax : matplotlib Axes
+            Perceptual Map plot
+        """
 
-        self._check_is_fitted()
+        if X is not None:
+            result = self._transform(X)
+        else:
+            result = self.result_dict
 
-        # Build figure if none is passed
         if ax is None:
-            fig, ax = plt.subplots(figsize=figsize)
-        
-        # Add style
+            f, ax = plt.subplots(figsize=figsize)
+
+        if show_labels is None:
+            show_labels = [True, True]
+
         if stylize:
             ax = plot.stylize_axis(ax, grid=False)
 
-        tup = self._fitted_tuple
+        if supp:
+            if self.supp_rows is None and self.supp_cols is None:
+                raise NoSupplementaryDataError("PMAP has no supplementary data.")
 
         # Change inputs based on function parameters
         # if supp == "only" or supp == False all tuples are len 2, if supp == True all tuples are len 4
-        if supp in ('only', False):
-            if len(show_labels) != 2:
-                raise ValueError('Length of show_labels expected to be 2')
-            tup = tup[2:4] if supp == 'only' else tup[0:2]
-        elif supp == True:
-            if len(show_labels) not in (2,4):
-                raise ValueError('Length of show_labels expected to be 2 or 4')
-            show_labels = show_labels * 2 if len(show_labels) == 2 else show_labels
-        else:
-            raise ValueError("supp must be True, False or 'only'")
+        match supp:
+            case "only" | False:
+                if len(show_labels) != 2:
+                    raise ValueError("Length of show_labels expected to be 2")
+            case True:
+                if len(show_labels) not in (2, 4):
+                    raise ValueError("Length of show_labels expected to be 2 or 4")
+                show_labels = show_labels * 2 if len(show_labels) == 2 else show_labels
+            case _:
+                raise ValueError("supp must be True, False or 'only'")
 
         # for only_labels
         legend_handles = []
-        
-        # Main plotting loop
-        for i, l in zip(tup, show_labels):
-            if i is not None:
-                self._plot(i.loc[:,[x_component, y_component]], ax, l, only_labels, **kwargs)
-                if only_labels and l:
-                    c = next(ax._get_lines.prop_cycler)['color']
-                    legend_handles.append(mpatches.Patch(color=c, label=i.index.name))
 
-        # Manually build legend if only_labels is True
+        result.items()
+
+        # Main plotting loop
+        for (name, df), l in zip(result.items(), show_labels):
+            color = next(ax._get_lines.prop_cycler)["color"]
+            self._plot_map(
+                df.loc[:, [x_component, y_component]],
+                ax,
+                name,
+                color,
+                l,
+                only_labels,
+                **kwargs,
+            )
+            if only_labels and l:
+                legend_handles.append(mpatches.Patch(color=color, label=name))
+
+        if invert_ax is not None:
+            ax = invert_plot_axis(ax, invert_ax)
+
         if only_labels:
             ax.legend(handles=legend_handles)
         else:
             ax.legend()
 
         # Text
-        ei = self.explained_inertia_
-        ax.set_title('Principal Coordinates ({:.2f}% total inertia)'.format(100 * (ei[y_component]+ei[x_component])))
-        ax.set_xlabel('Component {} ({:.2f}% inertia)'.format(x_component, 100 * ei[x_component]))
-        ax.set_ylabel('Component {} ({:.2f}% inertia)'.format(y_component, 100 * ei[y_component]))
+        ei = self.estimator.explained_inertia_
+        ax.set_title(
+            f"Principal Coordinates ({(ei[y_component] + ei[x_component]):.2%} total inertia)"
+        )
+        ax.set_xlabel(f"Component {x_component} ({ei[x_component]:.2%} inertia)")
+        ax.set_ylabel(f"Component {y_component} ({ei[y_component]:.2%} inertia)")
 
-        # Invert axis if passed
-        if invert_ax is not None:
-            if invert_ax == 'x':
-                ax.invert_xaxis()
-            elif invert_ax == 'y':
-                ax.invert_yaxis()
-            elif invert_ax == 'b':
-                ax.invert_xaxis()
-                ax.invert_yaxis()
-            else:
-                raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
-        
         return ax
-    
-    def plot_subplots(self, figsize: tuple = (16,9), axs = None, x_component: int = 0,
-                y_component: int = 1, **kwargs):
-        '''Plots each chunk of data into a separate subplot.
-        
-        Parameters
-        ----------
-        figsize : tuple(int)
-            Size of the returned plot. Ignored if axes is not None
-        axs : matplotlib Axes, default = None
-            The axes to plot into. Defaults to None, creating a new axes
-        x_component, y_component : int
-            Component from the trained self to use as x and y axis in the perceptual map
-        invert_ax : str, default = None
-            'x' = invert x axis 
-            'y' = invert y axis 
-            'b' = invert both axis
-        **kwargs 
-            Additional arguments to pass to matplotlib function
-        
-        Returns
-        -------
-        axes : matplotlib axes
-            Perceptual map plot
-        '''
-
-        self._check_is_fitted()
-
-        chunks = tuple(c.loc[:,[x_component, y_component]] if c is not None else None for c in self._fitted_tuple)
-        n_plots = len([c for c in chunks if c is not None])
-
-        # Build figure if none is passed
-        if axs is None:
-            fig, axs = plt.subplots(nrows=2 if n_plots > 2 else 1, ncols=2, sharex=True, sharey=True, figsize=figsize, constrained_layout=True)
-        
-        colors = plt.cm.Dark2(range(0,4 if n_plots > 2 else 2))
-
-        # Main plotting loop
-        for ax, s, c in zip(axs.flat, chunks, colors):
-            if s is not None:
-                ax = plot.stylize_axis(ax, grid=False) # Add style
-                self._plot(s, ax, color=c, **kwargs)
-                ax.legend()
-        
-        # Hide empty plots
-        if n_plots == 3:
-            for ax in axs.flat:
-                if not ax.lines:
-                    ax.remove()
-        
-        # Text
-        ei = self.explained_inertia_
-        fig.suptitle('Principal Coordinates ({:.2f}% total inertia)'.format(100 * (ei[1]+ei[0])), fontsize=16)
-        fig.supxlabel('Component {} ({:.2f}% inertia)'.format(0, 100 * ei[0]))
-        fig.supylabel('Component {} ({:.2f}% inertia)'.format(1, 100 * ei[1]))
-
-        return axs

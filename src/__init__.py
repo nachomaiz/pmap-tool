@@ -1,2 +1,1 @@
-from .pmap import PMAP
-from .utils import clean_pct
+from factor_analyzer.rotator import POSSIBLE_ROTATIONS

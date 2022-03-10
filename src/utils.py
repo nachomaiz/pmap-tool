@@ -1,4 +1,5 @@
-import pandas as pd
+from typing import Literal
+
 import io
 import base64
 import json
@@ -6,29 +7,48 @@ import pickle
 import uuid
 import re
 
-def clean_pct(df: pd.DataFrame, keep_tag: bool = False) -> pd.DataFrame:
-    '''Clean pct tags from column names in a DataFrame'''
-    if isinstance(df, pd.DataFrame):
-        df.columns = df.columns.str.replace(r'_', ' ')
-        if not keep_tag:
-            df.columns = df.columns.str.replace(r' PCT', '')
-            df.columns = df.columns.str.replace(r' pct', '')
-    return df
+import pandas as pd
+import matplotlib.pyplot as plt
 
-def get_pmap_data(pmap, x_component:int = 0, y_component:int = 1, invert_ax: str = None) -> pd.DataFrame:
-    '''Returns two dimensions of multi-indexed, invert-compatible fitted data'''
-    d = pmap.fitted_data[[x_component, y_component]]
-    if invert_ax is not None:
-        if invert_ax == 'x':
-            d[x_component] = d[x_component] * -1
-        elif invert_ax == 'y':
-            d[y_component] = d[y_component] * -1
-        elif invert_ax == 'b':
-            d = d * -1
-        else:
-            raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
-    
-    return d
+
+### PANDAS INDEX FUNCTIONS ###
+
+
+def clean_pct(index: pd.Index, keep_tag: bool = False) -> pd.Index:
+    """Clean pct tags from pandas Index"""
+    index = index.str.replace(r"_", " ")
+    if not keep_tag:
+        index = index.str.replace(r" PCT", "")
+        index = index.str.replace(r" pct", "")
+    return index
+
+
+def isin_index(
+    index: pd.Index, other: pd.Index, axis: Literal["index", "columns"] = "index"
+) -> None:
+    """Check if all members of a pandas Index is in another,
+    raising a KeyError with any missing values."""
+
+    if axis not in ["index", "columns"]:
+        raise ValueError("axis must be 'index' or 'columns'.")
+
+    if any(key := other[~other.isin(index)]):
+        raise KeyError(f"None of {key} are in the {axis}")
+
+
+def invert_plot_axis(ax: plt.Axes, axis: Literal["x", "y", "b", "both"]) -> plt.Axes:
+    """Invert Axes axis direction."""
+    if axis == "x":
+        ax.invert_xaxis()
+    elif axis == "y":
+        ax.invert_yaxis()
+    elif axis == "b" or axis == "both":
+        ax.invert_xaxis()
+        ax.invert_yaxis()
+    else:
+        raise ValueError("invert_ax must be 'x', 'y' or 'both'('b').")
+
+    return ax
 
 # Download button for streamlit app
 def download_button(object_to_download, download_filename : str, button_text : str, pickle_it : bool = False) -> str:
