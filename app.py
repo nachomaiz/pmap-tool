@@ -74,36 +74,32 @@ def get_supp_params(
     """Get Supplementary data parameters."""
 
     supp_rows, supp_cols = [], []
-    max_supp_rows, max_supp_cols = (i - 3 for i in data.shape)
+    max_supp_rows, max_supp_cols = [i - 3 for i in data.shape]
 
-    if st.sidebar.checkbox(
-        "Supplementary data", help="For plotting grouped averages, factors, etc."
-    ):
+    # Show only if each data shape dimension is large enough
+    if n_rows > 3:
+        supp_rows = st.multiselect(
+            "Supplementary rows",
+            data.index,
+            format_func=clean_pct,
+            help=f"Max: {max_supp_rows}",
+        )
 
-        # Show only if each data shape dimension is large enough
-        if n_rows > 3:
-            supp_rows = st.sidebar.multiselect(
-                "Supplementary rows",
-                data.index,
-                format_func=clean_pct,
-                help=f"Max: {max_supp_rows}",
-            )
+        if len(supp_rows) > max_supp_rows:
+            st.error("Must leave at least 3 rows as core data.")
+            st.stop()
 
-            if len(supp_rows) > max_supp_rows:
-                st.sidebar.error("Must leave at least 3 rows as core data.")
-                st.stop()
+    if n_cols > 3:
+        supp_cols = st.multiselect(
+            "Supplementary columns",
+            data.columns,
+            format_func=clean_pct,
+            help=f"Max: {max_supp_cols}",
+        )
 
-        if n_cols > 3:
-            supp_cols = st.sidebar.multiselect(
-                "Supplementary columns",
-                data.columns,
-                format_func=clean_pct,
-                help=f"Max: {max_supp_cols}",
-            )
-
-            if len(supp_cols) > max_supp_cols:
-                st.sidebar.error("Must leave at least 3 columns as core data.")
-                st.stop()
+        if len(supp_cols) > max_supp_cols:
+            st.error("Must leave at least 3 columns as core data.")
+            st.stop()
 
     return supp_rows, supp_cols
 
@@ -152,16 +148,13 @@ def sidebar() -> tuple[Pmap, pd.DataFrame]:
 
     with st.sidebar.form("parameters"):
         model = get_pmap_model(data, n_rows, n_cols)
+        supp_rows, supp_cols = get_supp_params(data, n_rows, n_cols)
         st.form_submit_button("Run", on_click=ready_state, args=(True,))
-
-    # st.sidebar.write(st.session_state['ready'])
 
     if not st.session_state["ready"]:
         st.stop()
     else:
         st.sidebar.success("Success!")
-
-    supp_rows, supp_cols = get_supp_params(data, n_rows, n_cols)
 
     model = model.fit(data, supp_rows=supp_rows, supp_cols=supp_cols)
 
@@ -256,6 +249,27 @@ def get_plot_params(model: Pmap) -> tuple[dict, dict]:
     return plot_params, context_params
 
 
+def get_pmap_data(
+    pmap: Pmap,
+    x_component: int = 0,
+    y_component: int = 1,
+    invert_ax: Optional[str] = None,
+) -> pd.DataFrame:
+    """Returns two dimensions of multi-indexed, invert-compatible fitted data"""
+    d = pmap.result.iloc[:, [x_component, y_component]]
+    if invert_ax is not None:
+        if invert_ax == "x":
+            d.iloc[:, x_component] = d.iloc[:, x_component] * -1
+        elif invert_ax == "y":
+            d.iloc[:, y_component] = d.iloc[:, y_component] * -1
+        elif invert_ax == "b":
+            d = d * -1
+        else:
+            raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
+
+    return d
+
+
 def main():
     """Main Streamlit App"""
 
@@ -301,7 +315,21 @@ def main():
         "You can download the coordinates to build your charts, or copy the image above."
     )
 
-    st.warning("Data download not yet available.")
+    out_data = get_pmap_data(
+        model,
+        x_component=plot_params["x_component"],
+        y_component=plot_params["y_component"],
+        invert_ax=plot_params["invert_ax"],
+    )
+
+    with st.expander("Download Output"):
+        st.markdown(
+            download_button(
+                out_data.reset_index(), "pmap-output.xlsx", "Download output as excel"
+            ),
+            unsafe_allow_html=True,
+        )
+        st.dataframe(out_data)
 
     st.info(
         """Developed with ❤ by [nachomaiz](https://github.com/nachomaiz)
