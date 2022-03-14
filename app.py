@@ -280,14 +280,13 @@ def main():
         """
         # Perceptual Map Tool
         You can use this tool to create perceptual maps, download the results, 
-        and supports supplementary data. \n
+        and supports supplementary data.\n
+        [More info](https://en.wikipedia.org/wiki/Perceptual_mapping) on perceptual maps.\n
         Make sure the data is in the right format: 
         - Names on left-most column
-        - All columns labeled
-        - Supplementary rows at bottom of table
-        - Supplementary columns right of the table
+        - All numerical columns labeled
 
-        Load sample data to ensure you're using the right data format.
+        Load sample data provided to see an example of the correct data format.
         """
     )
 
