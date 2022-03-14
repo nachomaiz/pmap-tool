@@ -1,1 +1,0 @@
-from factor_analyzer.rotator import POSSIBLE_ROTATIONS

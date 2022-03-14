@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -6,14 +6,17 @@ import cycler
 
 import streamlit as st
 
-from src import POSSIBLE_ROTATIONS
+from src.rotator import ROTATIONS
 from src.pmap import Pmap
-from src.utils import clean_pct, download_button
+from src.utils import clean_pct, format_data_to_plot, download_button
 
 SAMPLE_PATH = "data/brand data.xlsx"
 
+KwargDict = dict[str, Any]
+
 
 def ready_state(value: bool) -> None:
+    """Set ready state in session."""
     st.session_state.__setitem__("ready", value)
 
 
@@ -59,7 +62,7 @@ def get_model_params(n_cols: int) -> tuple:
         st.info("Max number of components for 3 columns = 2")
 
     rot_help = """`varimax` rotation recommended."""
-    rot = st.selectbox("Rotation", ["None"] + POSSIBLE_ROTATIONS, help=rot_help)
+    rot = st.selectbox("Rotation", ["None"] + ROTATIONS, help=rot_help)
     if rot == "None":
         rotation = None
     else:
@@ -87,7 +90,6 @@ def get_supp_params(
 
         if len(supp_rows) > max_supp_rows:
             st.error("Must leave at least 3 rows as core data.")
-            st.stop()
 
     if n_cols > 3:
         supp_cols = st.multiselect(
@@ -99,7 +101,6 @@ def get_supp_params(
 
         if len(supp_cols) > max_supp_cols:
             st.error("Must leave at least 3 columns as core data.")
-            st.stop()
 
     return supp_rows, supp_cols
 
@@ -161,7 +162,7 @@ def sidebar() -> tuple[Pmap, pd.DataFrame]:
     return model, data
 
 
-def get_plot_params(model: Pmap) -> tuple[dict, dict]:
+def get_plot_params(model: Pmap) -> tuple[KwargDict, KwargDict]:
     """Get plot parameters."""
     with st.expander("Plot Parameters"):
 
@@ -199,19 +200,12 @@ def get_plot_params(model: Pmap) -> tuple[dict, dict]:
                 "Vertical component", 0, model.n_components, 1
             )
 
-        st.write("Data to plot:")
-        col2_1, col2_2 = st.columns(2)
-        with col2_1:
-            plot_core = st.checkbox("Core", True)
-        with col2_2:
-            plot_supp = st.checkbox("Supplementary", True)
-
-        plot_params["supp"] = (
-            True
-            if plot_supp and plot_core
-            else "only"
-            if plot_supp and not plot_core
-            else False
+        plot_params["supp"] = st.select_slider(
+            "Show Supplementary",
+            [False, True],
+            True if model.has_supp else False,
+            format_data_to_plot,
+            disabled=not model.has_supp,
         )
 
         st.write("Show Labels:")
@@ -221,11 +215,14 @@ def get_plot_params(model: Pmap) -> tuple[dict, dict]:
         with col3_2:
             col_l = st.checkbox("Columns", True)
         with col3_3:
-            srow_l = st.checkbox("Supp Rows", True)
+            srow_l = st.checkbox("Supp Rows", model.has_supp_rows, disabled=not model.has_supp_rows)
         with col3_4:
-            scol_l = st.checkbox("Supp Columns", True)
+            scol_l = st.checkbox("Supp Columns", model.has_supp_cols, disabled=not model.has_supp_cols)
 
         plot_params["show_labels"] = [row_l, col_l, srow_l, scol_l]
+
+        if not plot_params["supp"]:
+            plot_params["show_labels"] = [row_l, col_l]
 
         st.write("Style:")
         col4_1, col4_2 = st.columns(2)
@@ -291,15 +288,30 @@ def main():
     )
 
     model, data = sidebar()
+    
+    if model.rotation and model.has_supp:
+        max_supp_rows, max_supp_cols = (model.n_components - 4, model.n_components - 3)
+        model_sr, model_sc = len(model.supp_rows), len(model.supp_cols)
+        
+        if (model_sr > max_supp_rows) or (model_sc > max_supp_cols):
+            st.warning(
+                f"""
+                Max supplementary rows and/or columns for rotations exceeded:
+                - Supplementary rows: {model_sr} (max {max_supp_rows})
+                - Supplementary columns: {model_sc} (max {max_supp_cols})
+                """,
+            )
+            st.stop()
+            
 
     st.info(
         f"""
-               Components: {model.n_components},
-               Rotation: {model.rotation},
-               Supp Rows: {len(model.supp_rows)},
-               Supp Cols: {len(model.supp_cols)}
-               """
-    )
+        Components: {model.n_components},
+        Rotation: {model.rotation},
+        Supp Rows: {len(model.supp_rows)},
+        Supp Cols: {len(model.supp_cols)}
+        """
+    )        
 
     with st.expander("Show Data"):
         st.dataframe(data)

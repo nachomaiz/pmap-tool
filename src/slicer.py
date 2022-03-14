@@ -33,15 +33,14 @@ def core_slicer(X: pd.DataFrame, rows: pd.Index, cols: pd.Index) -> pd.DataFrame
 
 def get_slicer(axis: Literal["index", "rows", 0, "columns", 1, "core"]) -> Slicer:
     """Returns the appropriate row or column slicer based on axis"""
-    match axis:
-        case "index" | "rows" | 0:
-            return row_slicer
-        case "columns" | 1:
-            return column_slicer
-        case "core":
-            return core_slicer
-        case _ as bad:
-            raise ValueError(f"{str(bad)} is not a valid DataFrame index.")
+    if axis in ["index", "rows", 0]:
+        return row_slicer
+    elif axis in ["columns", 1]:
+        return column_slicer
+    elif axis == "core":
+        return core_slicer
+    else:
+        raise ValueError(f"{str(axis)} is not a valid DataFrame index.")
 
 
 def supp_slice(

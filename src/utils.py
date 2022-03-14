@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional, Union
 
 import io
 import base64
@@ -30,6 +30,11 @@ def isin_index(
 
     if any(key := other[~other.isin(index)]):
         raise KeyError(f"None of {key} are in the {axis}")
+    
+def format_data_to_plot(value: Union[bool, str]) -> str:
+    if value:
+        return "Yes"
+    return "No"
 
 
 def invert_plot_axis(ax: plt.Axes, axis: Literal["x", "y", "b", "both"]) -> plt.Axes:
@@ -47,7 +52,7 @@ def invert_plot_axis(ax: plt.Axes, axis: Literal["x", "y", "b", "both"]) -> plt.
     return ax
 
 # Download button for streamlit app
-def download_button(object_to_download, download_filename : str, button_text : str, pickle_it : bool = False) -> str:
+def download_button(object_to_download, download_filename : str, button_text : str, pickle_it : bool = False) -> Optional[str]:
     """
     Generates a link to download the given object_to_download.
     Params:

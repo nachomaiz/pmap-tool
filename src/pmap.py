@@ -12,8 +12,8 @@ from prince import util, plot
 import sklearn.utils.validation
 from sklearn.exceptions import NotFittedError
 from sklearn.base import TransformerMixin
-from factor_analyzer.rotator import Rotator
 
+from src.rotator import PmapRotator
 import src.slicer as slc
 from src.utils import isin_index, invert_plot_axis
 
@@ -96,7 +96,8 @@ class Pmap(TransformerMixin):
         self.data: Union[pd.DataFrame, None] = None
         self.supp_rows: Union[pd.DataFrame, None] = None
         self.supp_cols: Union[pd.DataFrame, None] = None
-        self.rotator: Union[Rotator, None] = None
+        self.rows_rotator: Union[PmapRotator, None] = None
+        self.cols_rotator: Union[PmapRotator, None] = None
 
     @property
     def rotation_kwargs(self) -> dict[str, Any]:
@@ -153,7 +154,8 @@ class Pmap(TransformerMixin):
         self.data = X
 
         if self.rotation:
-            self.rotator = Rotator(self.rotation, **self.rotation_kwargs)
+            self.rows_rotator = PmapRotator(self.rotation, **self.rotation_kwargs)
+            self.cols_rotator = PmapRotator(self.rotation, **self.rotation_kwargs)
 
         if supp_rows is not None:
             if isinstance(supp_rows, int):
@@ -173,15 +175,27 @@ class Pmap(TransformerMixin):
         self.supp_cols = supp_cols
 
         self.estimator = self.estimator.fit(self.core)
+        
+        if self.rotation is not None:
+            self.rows_rotator = PmapRotator(self.rotation, **self.rotation_kwargs).fit(self.estimator.row_coordinates(self.core))
+            self.cols_rotator = PmapRotator(self.rotation, **self.rotation_kwargs).fit(self.estimator.column_coordinates(self.core))
 
         return self
 
-    def _rotate(self, X: pd.DataFrame) -> pd.DataFrame:
+    def _rotate_rows(self, X: pd.DataFrame) -> pd.DataFrame:
         """Rotate compoment loadings."""
         self._check_is_fitted()
 
         return pd.DataFrame(
-            self.rotator.fit_transform(X), index=X.index, columns=X.columns
+            self.rows_rotator.transform(X), index=X.index, columns=X.columns
+        )
+        
+    def _rotate_cols(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Rotate compoment loadings."""
+        self._check_is_fitted()
+
+        return pd.DataFrame(
+            self.cols_rotator.transform(X), index=X.index, columns=X.columns
         )
 
     def row_coords(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -189,7 +203,7 @@ class Pmap(TransformerMixin):
         res = self.estimator.row_coordinates(X)
 
         if self.rotation is not None:
-            return self._rotate(res)
+            return self._rotate_rows(res)
 
         return res
 
@@ -198,7 +212,7 @@ class Pmap(TransformerMixin):
         res = self.estimator.column_coordinates(X)
 
         if self.rotation is not None:
-            return self._rotate(res)
+            return self._rotate_cols(res)
 
         return res
 
@@ -229,9 +243,13 @@ class Pmap(TransformerMixin):
 
         if supp_rows is not None and supp_rows.columns.equals(self.core.columns):
             result["Supp Rows"] = self.row_coords(supp_rows)
+        else:
+            result["Supp Rows"] = None
 
         if supp_cols is not None and supp_cols.index.equals(self.core.index):
             result["Supp Cols"] = self.col_coords(supp_cols)
+        else:
+            result["Supp Cols"] = None
 
         return result
 
@@ -262,7 +280,7 @@ class Pmap(TransformerMixin):
 
     ## ATTRIBUTES
     @property
-    def core(self) -> pd.DataFrame | None:
+    def core(self) -> Optional[pd.DataFrame]:
         """Data for model fitting.
         Stripped of supplementary data if it exists."""
 
@@ -271,7 +289,7 @@ class Pmap(TransformerMixin):
         return slc.supp_slice(self.data, self.supp_rows, self.supp_cols, "core")
 
     @property
-    def supp_rows_slice(self) -> pd.DataFrame | None:
+    def supp_rows_slice(self) -> Optional[pd.DataFrame]:
         """Transformed supplementary rows from fit method."""
 
         if self.supp_rows is None:
@@ -279,7 +297,7 @@ class Pmap(TransformerMixin):
         return slc.supp_slice(self.data, self.supp_rows, self.supp_cols, "rows")
 
     @property
-    def supp_cols_slice(self) -> pd.DataFrame | None:
+    def supp_cols_slice(self) -> Optional[pd.DataFrame]:
         """Transformed supplementary cols from fit method."""
 
         if self.supp_cols is None:
@@ -287,9 +305,34 @@ class Pmap(TransformerMixin):
         return slc.supp_slice(self.data, self.supp_rows, self.supp_cols, "columns")
 
     @property
-    def result(self) -> pd.DataFrame:
+    def result(self) -> Optional[pd.DataFrame]:
         """DataFrame of result."""
         return pd.concat(self.result_dict)
+    
+    @property
+    def has_supp_rows(self) -> bool:
+        """Check if supplementary rows exist."""
+        if self.supp_rows is None:
+            return False
+        if self.supp_rows.empty:
+            return False
+        return True
+    
+    @property
+    def has_supp_cols(self) -> bool:
+        """Check if supplementary rows exist."""
+        if self.supp_cols is None:
+            return False
+        if self.supp_cols.empty:
+            return False
+        return True
+    
+    @property
+    def has_supp(self) -> bool:
+        """Check if supplementary data exist."""
+        if self.has_supp_rows or self.has_supp_cols:
+            return True
+        return False
 
     ## PLOTTING
     def plot_eigenvalues(self) -> tuple[Axes, Axes]:
@@ -362,7 +405,7 @@ class Pmap(TransformerMixin):
         X: Optional[pd.DataFrame] = None,
         x_component: int = 0,
         y_component: int = 1,
-        supp: bool | Literal["only"] = False,
+        supp: Union[bool, Literal["only"]] = False,
         figsize: tuple[int, int] = (16, 9),
         ax: Optional[plt.Axes] = None,
         show_labels: Optional[list[bool]] = None,
@@ -429,36 +472,34 @@ class Pmap(TransformerMixin):
 
         # Change inputs based on function parameters
         # if supp == "only" or supp == False all tuples are len 2, if supp == True all tuples are len 4
-        match supp:
-            case "only" | False:
-                if len(show_labels) != 2:
-                    raise ValueError("Length of show_labels expected to be 2")
-            case True:
-                if len(show_labels) not in (2, 4):
-                    raise ValueError("Length of show_labels expected to be 2 or 4")
-                show_labels = show_labels * 2 if len(show_labels) == 2 else show_labels
-            case _:
-                raise ValueError("supp must be True, False or 'only'")
+        if supp == "only" or supp == False:
+            if len(show_labels) != 2:
+                raise ValueError("Length of show_labels expected to be 2")
+        elif supp == True:
+            if len(show_labels) not in (2, 4):
+                raise ValueError("Length of show_labels expected to be 2 or 4")
+            show_labels = show_labels * 2 if len(show_labels) == 2 else show_labels
+        else:
+            raise ValueError("supp must be True, False or 'only'")
 
         # for only_labels
         legend_handles = []
 
-        result.items()
-
         # Main plotting loop
         for (name, df), l in zip(result.items(), show_labels):
-            color = next(ax._get_lines.prop_cycler)["color"]
-            self._plot_map(
-                df.loc[:, [x_component, y_component]],
-                ax,
-                name,
-                color,
-                l,
-                only_labels,
-                **kwargs,
-            )
-            if only_labels and l:
-                legend_handles.append(mpatches.Patch(color=color, label=name))
+            if df is not None:
+                color = next(ax._get_lines.prop_cycler)["color"]
+                self._plot_map(
+                    df.loc[:, [x_component, y_component]],
+                    ax,
+                    name,
+                    color,
+                    l,
+                    only_labels,
+                    **kwargs,
+                )
+                if only_labels and l:
+                    legend_handles.append(mpatches.Patch(color=color, label=name))
 
         if invert_ax is not None:
             ax = invert_plot_axis(ax, invert_ax)
