@@ -119,7 +119,9 @@ class Pmap(TransformerMixin):
             spss_preset.update({"kappa": self.n_components / (2 * self.data.shape[1])})
 
         if self._rotation_kwargs is not None:
-            return spss_preset | self._rotation_kwargs  # Keeps passed kwargs over preset.
+            return (
+                spss_preset | self._rotation_kwargs
+            )  # Keeps passed kwargs over preset.
 
         return spss_preset
 
@@ -175,10 +177,14 @@ class Pmap(TransformerMixin):
         self.supp_cols = supp_cols
 
         self.estimator = self.estimator.fit(self.core)
-        
+
         if self.rotation is not None:
-            self.rows_rotator = PmapRotator(self.rotation, **self.rotation_kwargs).fit(self.estimator.row_coordinates(self.core))
-            self.cols_rotator = PmapRotator(self.rotation, **self.rotation_kwargs).fit(self.estimator.column_coordinates(self.core))
+            self.rows_rotator = PmapRotator(self.rotation, **self.rotation_kwargs).fit(
+                self.estimator.row_coordinates(self.core)
+            )
+            self.cols_rotator = PmapRotator(self.rotation, **self.rotation_kwargs).fit(
+                self.estimator.column_coordinates(self.core)
+            )
 
         return self
 
@@ -189,7 +195,7 @@ class Pmap(TransformerMixin):
         return pd.DataFrame(
             self.rows_rotator.transform(X), index=X.index, columns=X.columns
         )
-        
+
     def _rotate_cols(self, X: pd.DataFrame) -> pd.DataFrame:
         """Rotate compoment loadings."""
         self._check_is_fitted()
@@ -308,7 +314,7 @@ class Pmap(TransformerMixin):
     def result(self) -> Optional[pd.DataFrame]:
         """DataFrame of result."""
         return pd.concat(self.result_dict)
-    
+
     @property
     def has_supp_rows(self) -> bool:
         """Check if supplementary rows exist."""
@@ -317,7 +323,7 @@ class Pmap(TransformerMixin):
         if self.supp_rows.empty:
             return False
         return True
-    
+
     @property
     def has_supp_cols(self) -> bool:
         """Check if supplementary rows exist."""
@@ -326,7 +332,7 @@ class Pmap(TransformerMixin):
         if self.supp_cols.empty:
             return False
         return True
-    
+
     @property
     def has_supp(self) -> bool:
         """Check if supplementary data exist."""

@@ -215,9 +215,13 @@ def get_plot_params(model: Pmap) -> tuple[KwargDict, KwargDict]:
         with col3_2:
             col_l = st.checkbox("Columns", True)
         with col3_3:
-            srow_l = st.checkbox("Supp Rows", model.has_supp_rows, disabled=not model.has_supp_rows)
+            srow_l = st.checkbox(
+                "Supp Rows", model.has_supp_rows, disabled=not model.has_supp_rows
+            )
         with col3_4:
-            scol_l = st.checkbox("Supp Columns", model.has_supp_cols, disabled=not model.has_supp_cols)
+            scol_l = st.checkbox(
+                "Supp Columns", model.has_supp_cols, disabled=not model.has_supp_cols
+            )
 
         plot_params["show_labels"] = [row_l, col_l, srow_l, scol_l]
 
@@ -288,11 +292,11 @@ def main():
     )
 
     model, data = sidebar()
-    
+
     if model.rotation and model.has_supp:
         max_supp_rows, max_supp_cols = (model.n_components - 4, model.n_components - 3)
         model_sr, model_sc = len(model.supp_rows), len(model.supp_cols)
-        
+
         if (model_sr > max_supp_rows) or (model_sc > max_supp_cols):
             st.warning(
                 f"""
@@ -302,7 +306,6 @@ def main():
                 """,
             )
             st.stop()
-            
 
     st.info(
         f"""
@@ -311,7 +314,7 @@ def main():
         Supp Rows: {len(model.supp_rows)},
         Supp Cols: {len(model.supp_cols)}
         """
-    )        
+    )
 
     with st.expander("Show Data"):
         st.dataframe(data)

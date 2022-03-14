@@ -30,11 +30,11 @@ def isin_index(
 
     if any(key := other[~other.isin(index)]):
         raise KeyError(f"None of {key} are in the {axis}")
-    
+
+
 def format_data_to_plot(value: Union[bool, str]) -> str:
-    if value:
-        return "Yes"
-    return "No"
+    """Returns Yes if True, No if False."""
+    return "Yes" if value else "No"
 
 
 def invert_plot_axis(ax: plt.Axes, axis: Literal["x", "y", "b", "both"]) -> plt.Axes:
@@ -51,8 +51,14 @@ def invert_plot_axis(ax: plt.Axes, axis: Literal["x", "y", "b", "both"]) -> plt.
 
     return ax
 
+
 # Download button for streamlit app
-def download_button(object_to_download, download_filename : str, button_text : str, pickle_it : bool = False) -> Optional[str]:
+def download_button(
+    object_to_download,
+    download_filename: str,
+    button_text: str,
+    pickle_it: bool = False,
+) -> Optional[str]:
     """
     Generates a link to download the given object_to_download.
     Params:
@@ -82,9 +88,11 @@ def download_button(object_to_download, download_filename : str, button_text : s
             pass
 
         elif isinstance(object_to_download, pd.DataFrame):
-            #object_to_download = object_to_download.to_csv(index=False)
+            # object_to_download = object_to_download.to_csv(index=False)
             towrite = io.BytesIO()
-            object_to_download = object_to_download.to_excel(towrite, encoding='utf-8', index=False, header=True)
+            object_to_download = object_to_download.to_excel(
+                towrite, encoding="utf-8", index=False, header=True
+            )
             towrite.seek(0)
 
         # Try JSON encode for everything else
@@ -98,8 +106,8 @@ def download_button(object_to_download, download_filename : str, button_text : s
     except AttributeError:
         b64 = base64.b64encode(towrite.read()).decode()
 
-    button_uuid = str(uuid.uuid4()).replace('-', '')
-    button_id = re.sub('\d+', '', button_uuid)
+    button_uuid = str(uuid.uuid4()).replace("-", "")
+    button_id = re.sub("\d+", "", button_uuid)
 
     custom_css = f""" 
         <style>
@@ -129,6 +137,9 @@ def download_button(object_to_download, download_filename : str, button_text : s
                 }}
         </style> """
 
-    dl_link = custom_css + f'<a download="{download_filename}" id="{button_id}" href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}">{button_text}</a><br></br>'
+    dl_link = (
+        custom_css
+        + f'<a download="{download_filename}" id="{button_id}" href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}">{button_text}</a><br></br>'
+    )
 
     return dl_link
