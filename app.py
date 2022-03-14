@@ -61,14 +61,36 @@ def get_model_params(n_cols: int) -> tuple:
         n_components = 2
         st.info("Max number of components for 3 columns = 2")
 
-    rot_help = """`varimax` rotation recommended."""
-    rot = st.selectbox("Rotation", ["None"] + ROTATIONS, help=rot_help)
+    rot_help = """Beta implementation. Results are not guaranteed. `varimax` rotation recommended."""
+    rot = st.selectbox("Rotation (beta)", ["None"] + ROTATIONS, help=rot_help)
     if rot == "None":
         rotation = None
     else:
         rotation = rot
 
     return n_components, rotation, n_iter
+
+
+def make_plot_context_params(
+    foreground: str = "black", background: str = "white"
+) -> dict[str, Any]:
+    """Make dictionary with plot context parameters."""
+
+    context_params = {
+        "figure.facecolor": background,
+        "text.color": foreground,
+        "axes.facecolor": background,
+        "axes.edgecolor": foreground,
+        "axes.labelcolor": foreground,
+        "xtick.color": foreground,
+        "xtick.labelcolor": foreground,
+        "ytick.color": foreground,
+        "ytick.labelcolor": foreground,
+        "axes.prop_cycle": cycler.cycler("color", plt.cm.Dark2(range(0, 4))),
+        "font.size": "12.0",
+    }
+
+    return context_params
 
 
 def get_supp_params(
@@ -126,6 +148,31 @@ def get_pmap_model(data: pd.DataFrame, n_rows: int, n_cols: int) -> Pmap:
     return Pmap(n_components, rotation, n_iter=n_iter)
 
 
+def plot_inertia(model: Pmap) -> None:
+    """Plot explained inertia."""
+
+    plot_colors = {
+        "Dark": {"background": "#262730", "foreground": "#F4F4F4"},
+        "Light": {"background": "#F0F2F6", "foreground": "#262835"},
+    }
+
+    plot_theme = st.sidebar.select_slider("Theme", ["Dark", "Light"], "Dark")
+
+    with plt.style.context(make_plot_context_params(**plot_colors[plot_theme])):
+        f2, ax2 = plt.subplots(figsize=(3, 2))
+
+        expl_inertia = (
+            model.estimator.__class__(n_components=model.core.shape[1])
+            .fit(model.core)
+            .explained_inertia_
+        )
+
+        ax2.plot(range(1, len(expl_inertia) + 1), expl_inertia)
+        ax2.set_xticks(range(1, len(expl_inertia) + 1))
+
+    st.sidebar.pyplot(f2)
+
+
 def sidebar() -> tuple[Pmap, pd.DataFrame]:
     """App sidebar."""
     st.sidebar.title("Perceptual Map Setup")
@@ -159,6 +206,9 @@ def sidebar() -> tuple[Pmap, pd.DataFrame]:
 
     model = model.fit(data, supp_rows=supp_rows, supp_cols=supp_cols)
 
+    st.sidebar.write("## Explained inertia")
+    plot_inertia(model)
+
     return model, data
 
 
@@ -167,25 +217,13 @@ def get_plot_params(model: Pmap) -> tuple[KwargDict, KwargDict]:
     with st.expander("Plot Parameters"):
 
         plot_colors = {
-            "Dark": {"bg": "#0E1117", "fg": "#FAFAFA"},
-            "Light": {"bg": "#FFFFFF", "fg": "#0E1117"},
+            "Dark": {"background": "#0E1117", "foreground": "#FAFAFA"},
+            "Light": {"background": "#FFFFFF", "foreground": "#0E1117"},
         }
 
         plot_theme = st.select_slider("Plot theme", ["Dark", "Light"], "Dark")
 
-        context_params = {
-            "figure.facecolor": plot_colors[plot_theme]["bg"],
-            "text.color": plot_colors[plot_theme]["fg"],
-            "axes.facecolor": plot_colors[plot_theme]["bg"],
-            "axes.edgecolor": plot_colors[plot_theme]["fg"],
-            "axes.labelcolor": plot_colors[plot_theme]["fg"],
-            "xtick.color": plot_colors[plot_theme]["fg"],
-            "xtick.labelcolor": plot_colors[plot_theme]["fg"],
-            "ytick.color": plot_colors[plot_theme]["fg"],
-            "ytick.labelcolor": plot_colors[plot_theme]["fg"],
-            "axes.prop_cycle": cycler.cycler("color", plt.cm.Dark2(range(0, 4))),
-            "font.size": "12.0",
-        }
+        context_params = make_plot_context_params(**plot_colors[plot_theme])
 
         plot_params = {}
 
@@ -291,29 +329,6 @@ def main():
     )
 
     model, data = sidebar()
-
-    if model.rotation in ["varimax", "oblimax", "equamax"]:
-        # Rotations don't work if the data doesn't have enough dimensions.
-        max_n_components = data.shape[0] - 5
-        if model.rotation in ["varimax", "oblimax"]:
-            max_supp_rows, max_supp_cols = (model.n_components - 4, data.shape[1] - model.n_components - 1)
-        else:
-            max_supp_rows, max_supp_cols = (model.n_components - 4, data.shape[1])
-        model_sr = len(model.supp_rows) if model.supp_rows is not None else 0
-        model_sc = len(model.supp_cols) if model.supp_cols is not None else 0
-
-        if model_sr > max_supp_rows or model_sc > max_supp_cols or model.n_components > max_n_components:
-            st.warning(
-                f"""
-                Max parameter values for rotations exceeded:
-                - Number of components: {model.n_components} (max {max_n_components})
-                - Supplementary rows: {model_sr} (max {max_supp_rows})
-                - Supplementary columns: {model_sc} (max {max_supp_cols})
-                
-                Try increasing the number of components or removing .
-                """,
-            )
-            st.stop()
 
     st.info(
         f"""
