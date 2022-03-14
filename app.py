@@ -1,161 +1,358 @@
-import streamlit as st
+from typing import Optional, Any
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import cycler
 
-from src import pmap, utils
+import streamlit as st
 
-st.set_page_config(
-    page_title="Perceptual Map Tool",
-    page_icon="💡"
-)
+from src.rotator import ROTATIONS
+from src.pmap import Pmap
+from src.utils import clean_pct, format_data_to_plot, download_button
 
-# Cached data and model load for faster interactivity
-@st.cache(allow_output_mutation=True)
-def build_pmap_model(X : pd.DataFrame, supp: tuple, n_components : int, n_iter: int) -> pmap.PMAP:
-    return pmap.PMAP(n_components, n_iter).fit(X, supp)
+SAMPLE_PATH = "data/brand data.xlsx"
 
-@st.cache()
-def load_data(data) -> pd.DataFrame:
-    return pd.read_excel(data, index_col=0)
+KwargDict = dict[str, Any]
 
-"""
-# Perceptual Map Tool
-You can use this tool to create perceptual maps, download the results, 
-and supports supplementary data. \n
-Make sure the data is in the right format: 
-- Names on left-most column
-- All columns labeled
-- Supplementary rows at bottom of table
-- Supplementary columns right of the table
 
-Load sample data below to ensure you're using the right data format.
-"""
+def ready_state(value: bool) -> None:
+    """Set ready state in session."""
+    st.session_state.__setitem__("ready", value)
 
-st.sidebar.title("Perceptual Map Setup")
 
-uploaded_file = st.sidebar.file_uploader(
-    "Please upload your Excel file:",
-    type=['xls','xlsx']
-)
+def load_data() -> Optional[pd.DataFrame]:
+    """Load sample data or upload file."""
+    upload_disabled = False
 
-# sample data functionality which displays filename in sidebar, overrides file upload for referencing.
-if sample := st.checkbox('Load sample data'):
-    uploaded_file = 'data/brand data.xlsx'
-    filename = uploaded_file.split('/')[-1]
-    st.info('Try using one supplementary column on this dataset.')
-    if filename in uploaded_file:
-        st.sidebar.info(f'Using sample data: {filename}')
+    if st.sidebar.checkbox("Load sample data", on_change=ready_state, args=(False,)):
+        upload_disabled = False
+        return pd.read_excel(SAMPLE_PATH, index_col=0)
 
-# Main app once data is ready
-if uploaded_file:
+    file = st.sidebar.file_uploader(
+        "Please upload your Excel file:",
+        type=["xls", "xlsx"],
+        accept_multiple_files=False,
+        disabled=upload_disabled,
+    )
+    if file:
+        return pd.read_excel(file, index_col=0)
 
-    # handles most cases of bad files.
-    try:
-        data = load_data(uploaded_file)
-        for c in data.columns:
-            if data[c].dtype not in ('float','int'):
-                st.stop()
-    except:
-        st.error("Your file could not be loaded.")
-        st.stop()
-    
+
+def get_model_params(n_cols: int) -> tuple:
+    """Get main parameters for Pmap object."""
+    n_iter = st.number_input("# of iterations", 1, 100, 10, step=5)
+
+    n_comp_help = """
+        For performance reasons the max is 10. 
+        Allows one less than the total number of data columns.
+        
+        4 or more are recommended for rotations.
+        """
+
+    if n_cols > 3:
+        n_components = st.slider(
+            "Number of components (default 5)",
+            2,
+            10 if n_cols > 10 else n_cols - 1,
+            5,
+            help=n_comp_help,
+        )
+    else:
+        n_components = 2
+        st.info("Max number of components for 3 columns = 2")
+
+    rot_help = """`varimax` rotation recommended."""
+    rot = st.selectbox("Rotation", ["None"] + ROTATIONS, help=rot_help)
+    if rot == "None":
+        rotation = None
+    else:
+        rotation = rot
+
+    return n_components, rotation, n_iter
+
+
+def get_supp_params(
+    data: pd.DataFrame, n_rows: int, n_cols: int
+) -> tuple[Optional[list], Optional[list]]:
+    """Get Supplementary data parameters."""
+
+    supp_rows, supp_cols = [], []
+    max_supp_rows, max_supp_cols = [i - 3 for i in data.shape]
+
+    # Show only if each data shape dimension is large enough
+    if n_rows > 3:
+        supp_rows = st.multiselect(
+            "Supplementary rows",
+            data.index,
+            format_func=clean_pct,
+            help=f"Max: {max_supp_rows}",
+        )
+
+        if len(supp_rows) > max_supp_rows:
+            st.error("Must leave at least 3 rows as core data.")
+
+    if n_cols > 3:
+        supp_cols = st.multiselect(
+            "Supplementary columns",
+            data.columns,
+            format_func=clean_pct,
+            help=f"Max: {max_supp_cols}",
+        )
+
+        if len(supp_cols) > max_supp_cols:
+            st.error("Must leave at least 3 columns as core data.")
+
+    return supp_rows, supp_cols
+
+
+def get_pmap_model(data: pd.DataFrame, n_rows: int, n_cols: int) -> Pmap:
+    """App sidebar to fit Pmap model."""
+
     n_rows, n_cols = data.shape
-
-    # handles data being too small
-    if n_rows < 3 or n_cols < 3:
-        st.error("Data is too small for perceptual map. Needs at least 3 rows and columns.")
-        st.stop()
-    with st.beta_expander("Show Data"):
-        st.dataframe(data)
 
     # Warning for small datasets
     if n_rows < 4 or n_cols < 4:
-        st.sidebar.warning("Your data can be turned into a perceptual map, but it only has 3 {dim}, so you cannot pick {comps} supplementary {dim}."
-            .format(dim="rows" if n_rows < 4 else "columns",
-                    comps="components or" if n_cols < 4 else ""
-                    )
-                )
-        
+        dim = "rows" if n_rows < 4 else "columns"
+        comps = "components or" if n_cols < 4 else ""
+        st.warning(
+            f"""Your data can be turned into a perceptual map, but it only has 3 {dim},
+            so you cannot pick {comps} supplementary {dim}."""
+        )
+
     # Model parameters
-    # n_iter = st.sidebar.number_input("# of iterations", 1, 100, 10)
-    n_iter = 10
-    if n_cols > 3:
-        n_components = st.sidebar.slider("Number of components (default 2)", 2, 10 if n_cols > 10 else n_cols - 1, 2, help="For performance reasons the max is 10. Allows one less than the total number of data columns")
-    else: 
-        n_components = 2
-        st.sidebar.info("Number of components = 2")
-    x_component = st.sidebar.slider("Horizontal component", 0, n_components - 1, 0)
-    y_component = st.sidebar.slider("Vertical component", 0, n_components - 1, 1)
 
-    # Chart options
-    invert_x = st.sidebar.checkbox("Invert x axis", False)
-    invert_y = st.sidebar.checkbox("Invert y axis", False)
+    n_components, rotation, n_iter = get_model_params(n_cols)
 
-    # Parse invert axis for PMAP functions
-    invert_ax = 'b' if invert_x and invert_y else 'x' if invert_x else 'y' if invert_y else None
-    
-    # Supplementary Data
+    return Pmap(n_components, rotation, n_iter=n_iter)
 
-    if st.sidebar.checkbox("Supplementary data", help="For plotting grouped averages, factors, etc. Only the final rows and/or columns can be supplementary"):
-        supp = [0,0]
 
-        # Show only if each data shape dimension is large enough
-        if n_rows > 3:
-            supp[0] = st.sidebar.slider("Supplementary rows", 0, n_rows - 3, 0, 1, help="Must leave at least 3 rows as core data")
+def sidebar() -> tuple[Pmap, pd.DataFrame]:
+    """App sidebar."""
+    st.sidebar.title("Perceptual Map Setup")
 
-        if n_cols > 3:
-            supp[1] = st.sidebar.slider("Supplementary columns", 0, n_cols - 3, 1 if sample else 0, 1, help="Must leave at least 3 columns as core data") # default value is 1 if sample data is loaded
-        
-        # set supp to tuple or None if both supp values are zero
-        supp = None if supp == [0,0] else tuple(supp)
-        
-        plot_supp_idx = 1 if supp is None else 0
-        plot_supp = st.sidebar.selectbox("Plot supplementary data",[True,False,'only'], index=plot_supp_idx)
+    data = load_data()
 
+    if data is None:
+        st.stop()
+
+    try:
+        data = data.astype("float")
+    except ValueError:
+        st.sidebar.error("Only numeric types are supported.")
+        st.stop()
+
+    st.sidebar.info(
+        f"Data loaded with {data.shape[0]} rows and {data.shape[1]} columns."
+    )
+
+    n_rows, n_cols = data.shape
+
+    with st.sidebar.form("parameters"):
+        model = get_pmap_model(data, n_rows, n_cols)
+        supp_rows, supp_cols = get_supp_params(data, n_rows, n_cols)
+        st.form_submit_button("Run", on_click=ready_state, args=(True,))
+
+    if not st.session_state["ready"]:
+        st.stop()
     else:
-        supp = None
-        plot_supp = False
+        st.sidebar.success("Success!")
 
-    model = build_pmap_model(data, supp, n_components, n_iter)
+    model = model.fit(data, supp_rows=supp_rows, supp_cols=supp_cols)
 
-    # Styling for the Perceptual Map plot
-    plot_colors = {"Dark" : {'bg':'#0E1117', 'fg':'#FAFAFA'},
-                   "Light" : {'bg':'#FFFFFF', 'fg':'#0E1117'}}
-    plot_theme = st.select_slider("Plot theme",["Dark", "Light"], "Dark")
+    return model, data
 
-    mplparams = {
-        'figure.facecolor' : plot_colors[plot_theme]['bg'],
-        'text.color' : plot_colors[plot_theme]['fg'],
-        'axes.facecolor' : plot_colors[plot_theme]['bg'],
-        'axes.edgecolor' : plot_colors[plot_theme]['fg'],
-        'axes.labelcolor' : plot_colors[plot_theme]['fg'],
-        'xtick.color' : plot_colors[plot_theme]['fg'],
-        'xtick.labelcolor' : plot_colors[plot_theme]['fg'],
-        'ytick.color' : plot_colors[plot_theme]['fg'],
-        'ytick.labelcolor' : plot_colors[plot_theme]['fg'],
-        'axes.prop_cycle' : cycler.cycler('color',plt.cm.Dark2(range(0,4))),
-        'font.size' : '12.0'
-    }
 
-    col1, col2, col3 = st.beta_columns(3)
-    with col1:
-        only_labels = st.checkbox('Labels only', False)
-    with col3:
-        stylize = st.checkbox('Show origin', True)
+def get_plot_params(model: Pmap) -> tuple[KwargDict, KwargDict]:
+    """Get plot parameters."""
+    with st.expander("Plot Parameters"):
 
-    # Plot Perceptual Map
-    with plt.style.context(mplparams):
-        fig, ax = plt.subplots(figsize=(16,9))
-        model.plot_map(x_component=x_component, y_component=y_component, supp=plot_supp, ax=ax, invert_ax=invert_ax, only_labels=only_labels, stylize=stylize)
+        plot_colors = {
+            "Dark": {"bg": "#0E1117", "fg": "#FAFAFA"},
+            "Light": {"bg": "#FFFFFF", "fg": "#0E1117"},
+        }
+
+        plot_theme = st.select_slider("Plot theme", ["Dark", "Light"], "Dark")
+
+        context_params = {
+            "figure.facecolor": plot_colors[plot_theme]["bg"],
+            "text.color": plot_colors[plot_theme]["fg"],
+            "axes.facecolor": plot_colors[plot_theme]["bg"],
+            "axes.edgecolor": plot_colors[plot_theme]["fg"],
+            "axes.labelcolor": plot_colors[plot_theme]["fg"],
+            "xtick.color": plot_colors[plot_theme]["fg"],
+            "xtick.labelcolor": plot_colors[plot_theme]["fg"],
+            "ytick.color": plot_colors[plot_theme]["fg"],
+            "ytick.labelcolor": plot_colors[plot_theme]["fg"],
+            "axes.prop_cycle": cycler.cycler("color", plt.cm.Dark2(range(0, 4))),
+            "font.size": "12.0",
+        }
+
+        plot_params = {}
+
+        col1_1, col1_2 = st.columns(2)
+        with col1_1:
+            plot_params["x_component"] = st.slider(
+                "Horizontal component", 0, model.n_components, 0
+            )
+
+        with col1_2:
+            plot_params["y_component"] = st.slider(
+                "Vertical component", 0, model.n_components, 1
+            )
+
+        plot_params["supp"] = st.select_slider(
+            "Show Supplementary",
+            [False, True],
+            True if model.has_supp else False,
+            format_data_to_plot,
+            disabled=not model.has_supp,
+        )
+
+        st.write("Show Labels:")
+        col3_1, col3_2, col3_3, col3_4 = st.columns(4)
+        with col3_1:
+            row_l = st.checkbox("Rows", True)
+        with col3_2:
+            col_l = st.checkbox("Columns", True)
+        with col3_3:
+            srow_l = st.checkbox(
+                "Supp Rows", model.has_supp_rows, disabled=not model.has_supp_rows
+            )
+        with col3_4:
+            scol_l = st.checkbox(
+                "Supp Columns", model.has_supp_cols, disabled=not model.has_supp_cols
+            )
+
+        plot_params["show_labels"] = [row_l, col_l, srow_l, scol_l]
+
+        if not plot_params["supp"]:
+            plot_params["show_labels"] = [row_l, col_l]
+
+        st.write("Style:")
+        col4_1, col4_2 = st.columns(2)
+        with col4_1:
+            plot_params["only_labels"] = st.checkbox("Only Labels", True)
+            plot_params["stylize"] = st.checkbox("Show Origin", True)
+        with col4_2:
+            invert_x = st.checkbox("Invert x axis")
+            invert_y = st.checkbox("Invert y axis")
+
+        plot_params["invert_ax"] = (
+            "b"
+            if invert_x and invert_y
+            else "x"
+            if invert_x
+            else "y"
+            if invert_y
+            else None
+        )
+
+    return plot_params, context_params
+
+
+def get_pmap_data(
+    pmap: Pmap,
+    x_component: int = 0,
+    y_component: int = 1,
+    invert_ax: Optional[str] = None,
+) -> pd.DataFrame:
+    """Returns two dimensions of multi-indexed, invert-compatible fitted data"""
+    d = pmap.result.iloc[:, [x_component, y_component]]
+    if invert_ax is not None:
+        if invert_ax == "x":
+            d.iloc[:, x_component] = d.iloc[:, x_component] * -1
+        elif invert_ax == "y":
+            d.iloc[:, y_component] = d.iloc[:, y_component] * -1
+        elif invert_ax == "b":
+            d = d * -1
+        else:
+            raise ValueError("invert_ax must be 'x', 'y' or 'b' for both")
+
+    return d
+
+
+def main():
+    """Main Streamlit App"""
+
+    st.set_page_config(page_title="Perceptual Map Tool", page_icon="💡")
+
+    st.write(
+        """
+        # Perceptual Map Tool
+        You can use this tool to create perceptual maps, download the results, 
+        and supports supplementary data.\n
+        [More info](https://en.wikipedia.org/wiki/Perceptual_mapping) on perceptual maps.\n
+        Make sure the data is in the right format: 
+        - Names on left-most column
+        - All numerical columns labeled
+
+        Load sample data provided to see an example of the correct data format.
+        """
+    )
+
+    model, data = sidebar()
+
+    if model.rotation and model.has_supp:
+        max_supp_rows, max_supp_cols = (model.n_components - 4, model.n_components - 3)
+        model_sr, model_sc = len(model.supp_rows), len(model.supp_cols)
+
+        if (model_sr > max_supp_rows) or (model_sc > max_supp_cols):
+            st.warning(
+                f"""
+                Max supplementary rows and/or columns for rotations exceeded:
+                - Supplementary rows: {model_sr} (max {max_supp_rows})
+                - Supplementary columns: {model_sc} (max {max_supp_cols})
+                """,
+            )
+            st.stop()
+
+    st.info(
+        f"""
+        Components: {model.n_components},
+        Rotation: {model.rotation},
+        Supp Rows: {len(model.supp_rows)},
+        Supp Cols: {len(model.supp_cols)}
+        """
+    )
+
+    with st.expander("Show Data"):
+        st.dataframe(data)
+
+    plot_params, context_params = get_plot_params(model)
+
+    with plt.style.context(context_params):
+        fig, ax = plt.subplots(figsize=(16, 9))
+        model.plot_map(ax=ax, **plot_params)
     st.pyplot(fig)
 
-    st.write("You can download the coordinates to build your charts, or copy the image above.")
+    st.write(
+        "You can download the coordinates to build your charts, or copy the image above."
+    )
 
-    out_data = utils.get_pmap_data(model, x_component=x_component, y_component=y_component, invert_ax=invert_ax)
+    out_data = get_pmap_data(
+        model,
+        x_component=plot_params["x_component"],
+        y_component=plot_params["y_component"],
+        invert_ax=plot_params["invert_ax"],
+    )
 
-    with st.beta_expander("Download Output"):
-        st.markdown(utils.download_button(out_data.reset_index(), 'pmap-output.xlsx', 'Download output as excel'), unsafe_allow_html=True)
+    with st.expander("Download Output"):
+        st.markdown(
+            download_button(
+                out_data.reset_index(), "pmap-output.xlsx", "Download output as excel"
+            ),
+            unsafe_allow_html=True,
+        )
         st.dataframe(out_data)
 
-st.info("Developed with ❤ by [nachomaiz](https://github.com/nachomaiz) based on the [prince](https://github.com/MaxHalford/prince) package. [GitHub repo](https://github.com/nachomaiz/pmap).")
+    st.info(
+        """Developed with ❤ by [nachomaiz](https://github.com/nachomaiz)
+            based on the [prince](https://github.com/MaxHalford/prince) and
+            [factor_analyzer](https://github.com/ets/factor_analyzer) packages. 
+            [GitHub repo](https://github.com/nachomaiz/pmap).
+            """
+    )
+
+
+if __name__ == "__main__":
+    main()

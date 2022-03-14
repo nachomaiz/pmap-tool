@@ -1,6 +1,8 @@
-pandas==1.2.4
-matplotlib==3.4.2
-cycler==0.10.0
-streamlit==0.83.0
+matplotlib==3.5.1
+openpyxl==3.0.9
+numpy==1.22.3
+pandas==1.4.1
 prince==0.7.1
-openpyxl==3.0.7
+factor_analyzer==0.4.0
+scikit_learn==1.0.2
+streamlit==1.7.0
