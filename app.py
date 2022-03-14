@@ -292,14 +292,18 @@ def main():
 
     model, data = sidebar()
 
-    if model.rotation and model.has_supp:
-        max_supp_rows, max_supp_cols = (model.n_components - 4, model.n_components - 3)
-        model_sr, model_sc = len(model.supp_rows), len(model.supp_cols)
+    if model.rotation:
+        # Rotations don't work if the data doesn't have enough dimensions.
+        max_n_components = data.shape[1] - 3
+        max_supp_rows, max_supp_cols = (model.n_components - 4, data.shape[1] - model.n_components)
+        model_sr = len(model.supp_rows) if model.supp_rows is not None else 0
+        model_sc = len(model.supp_cols) if model.supp_cols is not None else 0
 
-        if (model_sr > max_supp_rows) or (model_sc > max_supp_cols):
+        if model_sr > max_supp_rows or model_sc > max_supp_cols or model.n_components > max_n_components:
             st.warning(
                 f"""
-                Max supplementary rows and/or columns for rotations exceeded:
+                Max parameter values for rotations exceeded:
+                - Number of components: {model.n_components} (max {max_n_components})
                 - Supplementary rows: {model_sr} (max {max_supp_rows})
                 - Supplementary columns: {model_sc} (max {max_supp_cols})
                 """,
