@@ -353,20 +353,21 @@ def main():
         "You can download the coordinates to build your charts, or copy the image above."
     )
 
-    out_data = get_pmap_data(
-        model,
-        x_component=plot_params["x_component"],
-        y_component=plot_params["y_component"],
-        invert_ax=plot_params["invert_ax"],
-    )
-
     with st.expander("Download Output"):
+        out_data = get_pmap_data(
+            model,
+            x_component=plot_params["x_component"],
+            y_component=plot_params["y_component"],
+            invert_ax=plot_params["invert_ax"],
+        )
+
         st.markdown(
             download_button(
                 out_data.reset_index(), "pmap-output.xlsx", "Download output as excel"
             ),
             unsafe_allow_html=True,
         )
+
         st.dataframe(out_data)
 
     st.info(

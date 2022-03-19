@@ -96,8 +96,7 @@ class Pmap(TransformerMixin):
         self.data: Union[pd.DataFrame, None] = None
         self.supp_rows: Union[pd.DataFrame, None] = None
         self.supp_cols: Union[pd.DataFrame, None] = None
-        self.rows_rotator: Union[PmapRotator, None] = None
-        self.cols_rotator: Union[PmapRotator, None] = None
+        self.rotator: Union[PmapRotator, None] = None
 
     @property
     def rotation_kwargs(self) -> dict[str, Any]:
@@ -155,10 +154,6 @@ class Pmap(TransformerMixin):
         """
         self.data = X
 
-        if self.rotation:
-            self.rows_rotator = PmapRotator(self.rotation, **self.rotation_kwargs)
-            self.cols_rotator = PmapRotator(self.rotation, **self.rotation_kwargs)
-
         if supp_rows is not None:
             if isinstance(supp_rows, int):
                 supp_rows = X.index[-supp_rows:]
@@ -179,37 +174,24 @@ class Pmap(TransformerMixin):
         self.estimator = self.estimator.fit(self.core)
 
         if self.rotation is not None:
-            self.rows_rotator = PmapRotator(self.rotation, **self.rotation_kwargs).fit(
-                self.estimator.row_coordinates(self.core)
-            )
-            self.cols_rotator = PmapRotator(self.rotation, **self.rotation_kwargs).fit(
-                self.estimator.column_coordinates(self.core)
+            self.rotator = PmapRotator(self.rotation, **self.rotation_kwargs).fit(
+                pd.concat([self.estimator.row_coordinates(self.core), self.estimator.column_coordinates(self.core)])
             )
 
         return self
 
-    def _rotate_rows(self, X: pd.DataFrame) -> pd.DataFrame:
+    def _rotate(self, X: pd.DataFrame) -> pd.DataFrame:
         """Rotate compoment loadings."""
         self._check_is_fitted()
 
-        return pd.DataFrame(
-            self.rows_rotator.transform(X), index=X.index, columns=X.columns
-        )
-
-    def _rotate_cols(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Rotate compoment loadings."""
-        self._check_is_fitted()
-
-        return pd.DataFrame(
-            self.cols_rotator.transform(X), index=X.index, columns=X.columns
-        )
+        return pd.DataFrame(self.rotator.transform(X), index=X.index, columns=X.columns)
 
     def row_coords(self, X: pd.DataFrame) -> pd.DataFrame:
         """Convenience method for estimator row_coordinates function."""
         res = self.estimator.row_coordinates(X)
 
         if self.rotation is not None:
-            return self._rotate_rows(res)
+            return self._rotate(res)
 
         return res
 
@@ -218,7 +200,7 @@ class Pmap(TransformerMixin):
         res = self.estimator.column_coordinates(X)
 
         if self.rotation is not None:
-            return self._rotate_cols(res)
+            return self._rotate(res)
 
         return res
 
