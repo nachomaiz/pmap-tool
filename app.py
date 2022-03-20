@@ -230,12 +230,12 @@ def get_plot_params(model: Pmap) -> tuple[KwargDict, KwargDict]:
         col1_1, col1_2 = st.columns(2)
         with col1_1:
             plot_params["x_component"] = st.slider(
-                "Horizontal component", 0, model.n_components, 0
+                "Horizontal component", 0, model.n_components - 1, 0
             )
 
         with col1_2:
             plot_params["y_component"] = st.slider(
-                "Vertical component", 0, model.n_components, 1
+                "Vertical component", 0, model.n_components - 1, 1
             )
 
         plot_params["supp"] = st.select_slider(
@@ -348,6 +348,10 @@ def main():
         fig, ax = plt.subplots(figsize=(16, 9))
         model.plot_map(ax=ax, **plot_params)
     st.pyplot(fig)
+    
+    if plot_params["x_component"] == plot_params["y_component"]:
+        st.error("Horizontal component and Vertical component must be different.")
+        st.stop()
 
     st.write(
         "You can download the coordinates to build your charts, or copy the image above."
