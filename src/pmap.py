@@ -174,16 +174,15 @@ class Pmap(TransformerMixin):
         self.estimator = self.estimator.fit(self.core)
 
         if self.rotation is not None:
-            self.rotator = PmapRotator(self.rotation, **self.rotation_kwargs).fit(
-                pd.concat([self.estimator.row_coordinates(self.core), self.estimator.column_coordinates(self.core)])
-            )
+            self.rotator = PmapRotator(self.rotation, **self.rotation_kwargs).fit(self.estimator.column_coordinates(self.core))
 
         return self
 
     def _rotate(self, X: pd.DataFrame) -> pd.DataFrame:
         """Rotate compoment loadings."""
         self._check_is_fitted()
-
+        if self.rotator is None:
+            return X
         return pd.DataFrame(self.rotator.transform(X), index=X.index, columns=X.columns)
 
     def row_coords(self, X: pd.DataFrame) -> pd.DataFrame:
