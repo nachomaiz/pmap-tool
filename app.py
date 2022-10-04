@@ -32,6 +32,8 @@ def load_data() -> Optional[pd.DataFrame]:
         "Please upload your Excel file:",
         type=["xls", "xlsx"],
         accept_multiple_files=False,
+        on_change=ready_state,
+        args=(False,),
         disabled=upload_disabled,
     )
     if file:
