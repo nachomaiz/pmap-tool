@@ -24,7 +24,7 @@ def load_data() -> Optional[pd.DataFrame]:
     """Load sample data or upload file."""
     upload_disabled = False
 
-    if st.sidebar.checkbox("Load sample data", on_change=ready_state, args=(False,)):
+    if st.sidebar.checkbox("Load sample data"):
         upload_disabled = False
         return pd.read_excel(SAMPLE_PATH, index_col=0)
 
@@ -34,7 +34,9 @@ def load_data() -> Optional[pd.DataFrame]:
         accept_multiple_files=False,
         disabled=upload_disabled,
     )
+    
     if file:
+        # ready_state(False)
         return pd.read_excel(file, index_col=0)
 
 
