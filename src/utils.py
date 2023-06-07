@@ -91,7 +91,7 @@ def download_button(
             # object_to_download = object_to_download.to_csv(index=False)
             towrite = io.BytesIO()
             object_to_download = object_to_download.to_excel(
-                towrite, encoding="utf-8", index=False, header=True
+                towrite, index=False, header=True
             )
             towrite.seek(0)
 
