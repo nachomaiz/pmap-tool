@@ -1,11 +1,10 @@
 import numpy as np
 import pandas as pd
-
 from factor_analyzer.rotator import (
-    Rotator,
-    ORTHOGONAL_ROTATIONS,
     OBLIQUE_ROTATIONS,
+    ORTHOGONAL_ROTATIONS,
     POSSIBLE_ROTATIONS,
+    Rotator,
 )
 
 ORTH_ROTATIONS = ["varimax", "oblimax", "quartimax", "equamax", "geomin_ort"]
@@ -204,7 +203,7 @@ class PmapRotator(Rotator):
             if the rotation is oblique.
         """
         X = loadings.copy()
-        n_rows, n_cols = X.shape
+        n_cols = X.shape[1]
         if n_cols < 2:
             return X
 

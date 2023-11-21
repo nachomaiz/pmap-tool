@@ -1,6 +1,7 @@
-# pmap
+# pmap-tool
+
 Perceptual maps on python with support for plotting and supplementary data.
 
-Based on prince MCA and published on Heroku via the streamlit package.
+Based on `streamlit`, `prince` and `factor-analyzer` and published on streamlit.app.
 
-[Launch app on Heroku](https://pmap-tool.herokuapp.com/)
+[Launch app](https://pmap-tool.streamlit.app/)
