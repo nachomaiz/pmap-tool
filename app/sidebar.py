@@ -1,3 +1,5 @@
+# pylint: disable=protected-access, unsubscriptable-object
+
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -25,6 +27,7 @@ def get_model_params(state: AppState, data: pd.DataFrame) -> ModelParams:
             on_click=state.set,
             args=("model_params_set", True),
             use_container_width=True,
+            type="primary",
         )
 
         return ModelParams(n_iter, n_components, rotation)
@@ -50,6 +53,7 @@ def get_supp_params(state: AppState, data: pd.DataFrame) -> SuppParams:
             on_click=state.set,
             args=("pmap_data_loaded", True),
             use_container_width=True,
+            type="primary",
         )
 
     return SuppParams(supp_rows, supp_cols)
@@ -57,7 +61,7 @@ def get_supp_params(state: AppState, data: pd.DataFrame) -> SuppParams:
 
 def plot_eigenvalues(data: pd.DataFrame) -> alt.Chart:
     model = CA(data.shape[1]).fit(data)
-    eigen = model._eigenvalues_summary.reset_index()  # pylint: disable=protected-access
+    eigen = model._eigenvalues_summary.reset_index()
     eigen = eigen.assign(
         **{
             "Number of components": eigen["component"].astype(int) + 1,
