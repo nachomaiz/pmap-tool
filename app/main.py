@@ -30,7 +30,6 @@ EXAMPLE = """Example input data:
 Make sure the data is in the right format: 
 - Names on left-most column
 - All numerical columns labeled
-
 """
 FOOTER_MSG = (
     "Made with ❤ by nachomaiz. Based on `streamlit`, `prince` and `factor_analyzer`."
