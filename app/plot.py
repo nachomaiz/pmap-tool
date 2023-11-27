@@ -2,12 +2,10 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from app.io import pickle_serialize
-from app.model import Model
 from app.params import PlotParams
 
 
-@st.cache_data(hash_funcs={Model: pickle_serialize})
+@st.cache_data()
 def plot_map(coords: pd.DataFrame, plot_params: PlotParams) -> alt.Chart:
     domain_x = (
         coords[plot_params.x_component].min() * 1.05,
