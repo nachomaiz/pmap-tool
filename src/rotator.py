@@ -7,14 +7,8 @@ from factor_analyzer.rotator import (
     Rotator,
 )
 
-ORTH_ROTATIONS = ["varimax", "oblimax", "quartimax", "equamax", "geomin_ort"]
 
-OBL_ROTATIONS = ["oblimin", "quartimin", "geomin_obl"]
-
-ROTATIONS = ORTH_ROTATIONS + OBL_ROTATIONS
-
-
-class PmapRotator(Rotator):
+class TransformRotator(Rotator):
     """
     The Rotator class takes an (unrotated)
     factor loading matrix and performs one

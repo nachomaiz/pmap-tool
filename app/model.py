@@ -7,13 +7,13 @@ from prince import CA
 
 from app.io import pickle_serialize
 from app.params import ModelParams, SuppParams
-from src.rotator import PmapRotator
+from src.rotator import TransformRotator
 
 
 @dataclass
 class Model:
     ca: CA
-    rotator: PmapRotator | None
+    rotator: TransformRotator | None
     supp: SuppParams
 
     @classmethod
@@ -24,7 +24,7 @@ class Model:
 
         if params.rotation:
             kappa = params.n_components // (2 * n_features)
-            rotator = PmapRotator(params.rotation, kappa=kappa)
+            rotator = TransformRotator(params.rotation, kappa=kappa)
         else:
             rotator = None
 
@@ -48,9 +48,8 @@ class Model:
 
         return res
 
-    def column_coordinates(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Convenience method for estimator column_coordinates function."""
-        res = self.ca.column_coordinates(X)
+    def column_coordinates(self, data: pd.DataFrame) -> pd.DataFrame:
+        res = self.ca.column_coordinates(data)
 
         if self.rotator is not None:
             return pd.DataFrame(
