@@ -34,7 +34,7 @@ def get_model_params(state: AppState, data: pd.DataFrame) -> ModelParams:
 
 
 def get_supp_params(state: AppState, data: pd.DataFrame) -> SuppParams:
-    with st.form("form_supp_params"):
+    with st.form("form_supp_params", border=False):
         supp_rows: list[str] = st.multiselect(
             "Supplementary rows",
             data.index,
@@ -70,7 +70,7 @@ def plot_eigenvalues(data: pd.DataFrame) -> alt.Chart:
     )
     return (
         alt.Chart(eigen)
-        .mark_line()
+        .mark_line(point=True)
         .encode(x="Number of components:O", y=r"% of variance:Q")
         .configure_axis(grid=False)
     )
@@ -80,12 +80,18 @@ def render(
     state: AppState,
 ) -> tuple[pd.DataFrame | None, SuppParams | None, ModelParams | None]:
     with st.expander("Load data", expanded=not state.pmap_data_loaded):
-        data = load_data("Upload perceptual map data:", "uploader_data")
+        if st.toggle("Load sample data"):
+            data = pd.read_csv("data/sample.csv", index_col=0)
+        else:
+            data = load_data("Upload perceptual map data:", "uploader_data")
 
         if data is None:
             return None, None, None
 
         supp_params = get_supp_params(state, data)
+
+    if not state.pmap_data_loaded:
+        return data, None, None
 
     params_form = st.container()
 
