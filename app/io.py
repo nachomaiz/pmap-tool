@@ -17,6 +17,9 @@ DL_MIME_TYPE: dict[str, str] = {
     "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 
+pd.options.mode.copy_on_write = True
+pd.options.future.infer_string = True  # type: ignore
+
 
 @st.cache_data
 def load_pandas(file: UploadedFile) -> pd.DataFrame:
@@ -28,7 +31,7 @@ def load_data(label: str, key: str | None = None) -> pd.DataFrame | None:
         label, type=["xlsx", "csv"], key=key, accept_multiple_files=False
     )
 
-    return load_pandas(file) if file is not None else None
+    return load_pandas(file) if file else None
 
 
 def serialize(obj: object, pickle_it: bool = False) -> bytes:
@@ -62,11 +65,12 @@ def download_button(
         .decode("latin-1")
         .strip("_")
     )
+    file_type = file_name.rpartition(".")[2]
     st.download_button(
         label,
         serialize(data, pickle_it=pickle_it),
         file_name,
-        DL_MIME_TYPE[file_name.rpartition(".")[2]],
+        DL_MIME_TYPE[file_type],
         key=f"button_{label_slug}_{file_name}",
         **kwargs,
     )
