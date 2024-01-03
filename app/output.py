@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from app.io import download_button
-from app.params import PlotParams
+from app.params import PlotParams, maybe_invert_coords
 
 
 def render(coords: pd.DataFrame, plot_params: PlotParams) -> None:
@@ -14,24 +14,14 @@ def render(coords: pd.DataFrame, plot_params: PlotParams) -> None:
     plot_components = (plot_params.x_component, plot_params.y_component)
 
     st.subheader(
-        "Download plot data", help="Will only download columns highlighted in red."
+        "Download plot data", help="Selected components (highlighted in red) will be downloaded."
     )
     col1, col2 = st.columns(2)
-    download_raw = col1.toggle(
-        "Download raw data", False, help="Ignores inverted axes."
-    )
+    download_raw = col1.toggle("Download all components", False)
     to_highlight = coords.columns if download_raw else set(plot_components)
 
-    to_invert = [
-        col
-        for col, inv in zip(
-            plot_components, (plot_params.invert_x, plot_params.invert_y)
-        )
-        if inv
-    ]
-
-    if col2.toggle("Apply axis inversions", not download_raw, disabled=download_raw):
-        coords = coords.assign(**{col: coords[col] * -1 for col in to_invert})
+    if col2.toggle("Apply axis inversions", True):
+        coords = maybe_invert_coords(coords, plot_params)
 
     st.dataframe(coords.style.apply(highlight_columns), use_container_width=True)
 
