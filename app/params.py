@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from enum import StrEnum, auto
 
+import pandas as pd
+
 
 class Rotation(StrEnum):
     VARIMAX = auto()
@@ -32,3 +34,17 @@ class PlotParams:
     y_component: str
     invert_x: bool
     invert_y: bool
+
+
+def maybe_invert_coords(coords: pd.DataFrame, plot_params: PlotParams) -> pd.DataFrame:
+    if plot_params.invert_x:
+        coords = coords.assign(
+            **{plot_params.x_component: coords[plot_params.x_component] * -1}
+        )
+
+    if plot_params.invert_y:
+        coords = coords.assign(
+            **{plot_params.y_component: coords[plot_params.y_component] * -1}
+        )
+
+    return coords
