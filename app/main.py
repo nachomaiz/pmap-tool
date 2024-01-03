@@ -37,6 +37,7 @@ FOOTER_MSG = (
 
 
 def main():
+    # app initialization
     st.set_page_config(
         page_title="Perceptual Map Tool",
         page_icon="💡",
@@ -44,7 +45,7 @@ def main():
         initial_sidebar_state="expanded",
         menu_items={"about": ABOUT_INFO},
     )
-    st.title("💡 Perceptual Maps 🗺")
+    st.title("💡 Perceptual Map Tool 🗺")
     set_default_state()
 
     app_state = get_state()
@@ -78,7 +79,7 @@ def main():
     if data is None:
         return
 
-    # loaded data inspector
+    # loaded data
     with loaded_data_container.expander(
         "Loaded data", expanded=not app_state.model_params_set
     ):
@@ -90,14 +91,14 @@ def main():
     model = get_ca_model(data, model_params, supp_params)
     coords = get_plot_coords(model, data, supp_params)
 
-    # Plot Parameters
+    # plot parameters
     with plot_params_container.expander("Plot parameters"):
         plot_params = plot.get_plot_params(coords)
 
-    # Plot
+    # plot
     with plot_container:
-        plot.render(coords, plot_params)
+        plot.render(coords, model.explained_variance, plot_params)
 
-    # Output
+    # output
     with output_container:
         output.render(coords, plot_params)
