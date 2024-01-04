@@ -10,7 +10,7 @@ from app.params import ModelParams, SuppParams
 from src.rotator import TransformRotator
 
 
-@dataclass
+@dataclass(slots=True)
 class Model:
     ca: CA
     rotator: TransformRotator | None
