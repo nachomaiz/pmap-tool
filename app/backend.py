@@ -14,10 +14,6 @@ class AppState:
     def all_completed(self) -> bool:
         return self.pmap_data_loaded and self.model_params_set
 
-    def complete_all(self) -> None:
-        self.pmap_data_loaded = True
-        self.model_params_set = True
-
 
 def set_default_state(override: bool = False) -> None:
     default_state = {"app_state": AppState()}
