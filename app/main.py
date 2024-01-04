@@ -36,7 +36,7 @@ FOOTER_MSG = (
 )
 
 
-def main():
+def main() -> None:
     # app initialization
     st.set_page_config(
         page_title="Perceptual Map Tool",
