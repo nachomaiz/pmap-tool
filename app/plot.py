@@ -12,7 +12,7 @@ COLOR_PALETTE: dict[str, str] = {
 }
 
 
-@st.cache_data()
+@st.cache_data
 def plot_map(
     coords: pd.DataFrame, explained_variance: pd.Series, plot_params: PlotParams
 ) -> alt.Chart:
@@ -83,8 +83,9 @@ def render(
 
 def get_plot_params(plot_coords: pd.DataFrame) -> PlotParams:
     col1, col2 = st.columns(2)
-    x_component = str(col1.slider("X component", 0, plot_coords.shape[1] - 1, 0, 1))
-    y_component = str(col2.slider("Y component", 0, plot_coords.shape[1] - 1, 1, 1))
+    max_component = plot_coords.shape[1] - 1
+    x_component = str(col1.slider("X component", 0, max_component, 0, 1))
+    y_component = str(col2.slider("Y component", 0, max_component, 1, 1))
     invert_x = col1.toggle("Invert X")
     invert_y = col2.toggle("Invert Y")
 
