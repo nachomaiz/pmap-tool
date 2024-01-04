@@ -14,7 +14,8 @@ def render(coords: pd.DataFrame, plot_params: PlotParams) -> None:
     plot_components = (plot_params.x_component, plot_params.y_component)
 
     st.subheader(
-        "Download plot data", help="Selected components (highlighted in red) will be downloaded."
+        "Download plot data",
+        help="Selected components (highlighted in red) will be downloaded.",
     )
     col1, col2 = st.columns(2)
     download_raw = col1.toggle("Download all components", False)
