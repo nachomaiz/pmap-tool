@@ -1,8 +1,15 @@
-# pmap-tool
+# `pmap-tool`
 
-Perceptual maps on python with support for plotting and supplementary data.
+Streamlit app to create perceptual maps, powered by :snake: Python.
 
-Based on `streamlit`, `prince` and `factor-analyzer` and published on streamlit.app.
+Libraries powering the tool:
+
+- `streamlit` as application framework
+- `prince` for running Correspondence Analysis (perceptual maps)
+- `factor-analyzer` for rotation support
+- `pandas` for data handling
+- `openpyxl` for excel support
+- `altair` for visualizations
 
 [Launch app](https://pmap-tool.streamlit.app/)
 
