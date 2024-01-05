@@ -4,22 +4,33 @@ from app import output, plot, sidebar
 from app.backend import get_state, set_default_state
 from app.model import get_ca_model, get_plot_coords
 
-ABOUT_INFO = "pmap-tool is a free online tool to create perceptual maps."
-APP_INFO = """# Perceptual Map Tool
+ABOUT_INFO = """pmap-tool is a free online tool to create perceptual maps.
 
-Create perceptual maps from a table of items as rows and associations or attributes
-as columns, and download the perceptual map coordinates.
+Check out the project on [GitHub](https://github.com/nachomaiz/pmap-tool/)."""
 
-Based on Correspondende Analysis
-(powered by [`prince`](https://github.com/MaxHalford/prince)) 
-and [`factor_analyzer`](https://github.com/EducationalTestingService/factor_analyzer)
-for rotation support.
+APP_INFO = """Create perceptual maps from a table of items as rows and associations
+or attributes as columns, and download the perceptual map coordinates.
 
-Supports supplementary rows and columns.
+Based on Correspondence Analysis, with support for supplementary rows and columns,
+as well as rotation of the results.
 
-[More info](https://en.wikipedia.org/wiki/Perceptual_mapping) on perceptual maps."""
+Perceptual maps can be a great tool to understand the relationships of various items,
+based on a common set of attributes, to each other as well as the attributes
+most associated with them. Read more on perceptual maps from
+[Wikipedia](https://en.wikipedia.org/wiki/Perceptual_mapping).
 
-EXAMPLE = """Example input data:
+## Instructions
+
+To use the tool, go to the sidebar and:
+
+1. Upload your perceptual map data (see Input Format below). Once the data is uploaded,
+you will be able to inspect it in the main container of the app.
+2. Select your supplementary rows and columns, if any, and click `👍 Confirm`.
+3. Select your model parameters, and click `🚀 Run`. The resulting map will display in
+the main container. You can use the `Plot parameters` section to customize the plot.
+4. Select your download parameters and click the `💾 Download map result` button."""
+
+INPUT_FORMAT = """Example input data:
 
 | Item | Attribute 1 | Attribute 2 | Attribute 3 | ... |
 | :--- | ----------: | ----------: | ----------: | :-- |
@@ -29,11 +40,13 @@ EXAMPLE = """Example input data:
 
 Make sure the data is in the right format: 
 - Names on left-most column
-- All numerical columns labeled
-"""
-FOOTER_MSG = (
-    "Made with ❤ by nachomaiz. Based on `streamlit`, `prince` and `factor_analyzer`."
-)
+- All numerical columns labeled"""
+
+FOOTER = """Made with ❤ by [nachomaiz](https://github.com/nachomaiz).
+Based on [`streamlit`](https://streamlit.io/),
+[`prince`](https://maxhalford.github.io/prince/)
+and [`factor_analyzer`](https://factor-analyzer.readthedocs.io/en/latest/index.html).
+[GitHub repo](https://github.com/nachomaiz/pmap-tool/)."""
 
 
 def main() -> None:
@@ -62,14 +75,14 @@ def main() -> None:
     if not app_state.all_completed():
         info_container.markdown(APP_INFO)
         with info_container.expander("Input format"):
-            st.markdown(EXAMPLE)
+            st.markdown(INPUT_FORMAT)
     else:
-        with info_container.expander("Info"):
+        with info_container.expander("App info"):
             st.markdown(APP_INFO)
             st.subheader("Input format")
-            st.markdown(EXAMPLE)
+            st.markdown(INPUT_FORMAT)
 
-    footer_container.info(FOOTER_MSG)
+    footer_container.info(FOOTER)
 
     # sidebar
     with st.sidebar:
