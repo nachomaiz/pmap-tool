@@ -23,7 +23,7 @@ def get_model_params(state: AppState, data: pd.DataFrame) -> ModelParams:
         rotation = st.selectbox("Rotation", tuple(Rotation), index=None)
 
         st.form_submit_button(
-            "Run",
+            "🚀 Run",
             on_click=state.set,
             args=("model_params_set", True),
             use_container_width=True,
@@ -49,7 +49,7 @@ def get_supp_params(state: AppState, data: pd.DataFrame) -> SuppParams:
         )
 
         st.form_submit_button(
-            "Confirm",
+            "👍 Confirm",
             on_click=state.set,
             args=("pmap_data_loaded", True),
             use_container_width=True,
