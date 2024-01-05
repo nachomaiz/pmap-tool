@@ -59,10 +59,7 @@ class Model:
 
     @property
     def explained_variance(self) -> pd.Series:
-        return (
-            self.ca._eigenvalues_summary["% of variance"]
-            / 100  # pylint: disable=protected-access
-        )
+        return self.ca._eigenvalues_summary["% of variance"] / 100
 
 
 @st.cache_data(hash_funcs={Model: pickle_serialize})
