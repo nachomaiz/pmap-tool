@@ -1,7 +1,0 @@
-{
-    "name": "Perceptual Map Tool",
-    "description": "Perceptual maps on python with support for plotting and supplementary data.",
-    "image": "streamlit/python",
-    "repository": "https://github.com/nachomaiz/pmap-tool",
-    "keywords": ["pmap", "perceptual map", "correspondence analysis" ]
-}
