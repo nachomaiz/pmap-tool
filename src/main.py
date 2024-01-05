@@ -1,8 +1,8 @@
 import streamlit as st
 
-from app import output, plot, sidebar
-from app.backend import get_state, set_default_state
-from app.model import get_ca_model, get_plot_coords
+from src import output, plot, sidebar
+from src.backend import get_state, set_default_state
+from src.model import get_ca_model, get_plot_coords
 
 ABOUT_INFO = """pmap-tool is a free online tool to create perceptual maps.
 

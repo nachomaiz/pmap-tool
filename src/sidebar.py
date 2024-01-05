@@ -5,9 +5,9 @@ import pandas as pd
 import streamlit as st
 from prince import CA
 
-from app.backend import AppState
-from app.io import load_data
-from app.params import ModelParams, Rotation, SuppParams
+from src.backend import AppState
+from src.io import load_data
+from src.params import ModelParams, Rotation, SuppParams
 
 # Minimum to draw map
 MIN_ROWS = 3

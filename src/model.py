@@ -5,8 +5,8 @@ import pandas as pd
 import streamlit as st
 from prince import CA
 
-from app.io import pickle_serialize
-from app.params import ModelParams, SuppParams
+from src.io import pickle_serialize
+from src.params import ModelParams, SuppParams
 from src.rotator import TransformRotator
 
 

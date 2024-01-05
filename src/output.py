@@ -1,8 +1,8 @@
 import pandas as pd
 import streamlit as st
 
-from app.io import download_button
-from app.params import PlotParams, maybe_invert_coords
+from src.io import download_button
+from src.params import PlotParams, maybe_invert_coords
 
 
 def render(coords: pd.DataFrame, plot_params: PlotParams) -> None:

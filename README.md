@@ -16,5 +16,5 @@ Libraries powering the tool:
 To run locally:
 
 ```prompt
-streamlit run main.py
+streamlit run app.py
 ```

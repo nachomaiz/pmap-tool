@@ -1,6 +1,6 @@
 import pandas as pd
 
-from app.params import PlotParams, maybe_invert_coords
+from src.params import PlotParams, maybe_invert_coords
 
 
 def test_maybe_invert_coords():

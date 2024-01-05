@@ -1,6 +1,6 @@
 from unittest import mock
 
-from app.backend import AppState, get_state, set_default_state
+from src.backend import AppState, get_state, set_default_state
 
 
 def test_set():

@@ -2,7 +2,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from app.params import PlotParams, maybe_invert_coords
+from src.params import PlotParams, maybe_invert_coords
 
 COLOR_PALETTE: dict[str, str] = {
     "Rows": "#FF4B4B",

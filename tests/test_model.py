@@ -4,8 +4,8 @@ from unittest import mock
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 
-from app.model import Model, get_ca_model, get_plot_coords
-from app.params import ModelParams, Rotation, SuppParams
+from src.model import Model, get_ca_model, get_plot_coords
+from src.params import ModelParams, Rotation, SuppParams
 
 
 def test_model_build():
